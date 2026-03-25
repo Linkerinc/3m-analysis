@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3M B2B 판매 분석</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3150;
+    --accent: #4f7ef8;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --text: #e8eaf6;
+    --text2: #8b91b0;
+    --text3: #4f5470;
+    --aad: #4f7ef8; --asd: #10b981; --emd: #8b5cf6;
+    --iatd: #f59e0b; --isd: #06b6d4; --psd: #ec4899;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Pretendard',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* 로딩 화면 */
+  #loading {
+    position:fixed; inset:0; background:var(--bg); z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;
+  }
+  .loading-logo { font-size:48px; font-weight:700; letter-spacing:-2px; color:var(--accent); }
+  .loading-logo span { color:var(--text2); }
+  .loading-bar-wrap { width:280px; height:4px; background:var(--surface2); border-radius:99px; overflow:hidden; }
+  .loading-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:99px; transition:width .3s; }
+  .loading-msg { font-size:13px; color:var(--text2); }
+
+  /* 메인 레이아웃 */
+  #app { display:none; min-height:100vh; }
+  header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:0 32px; height:60px; display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100;
+  }
+  .logo { font-size:18px; font-weight:700; color:var(--accent); letter-spacing:-0.5px; }
+  .logo span { color:var(--text2); font-weight:400; }
+  .header-right { display:flex; align-items:center; gap:12px; }
+  .year-badge {
+    background:var(--surface2); border:1px solid var(--border);
+    padding:4px 12px; border-radius:6px; font-size:12px; color:var(--text2);
+  }
+  .year-badge strong { color:var(--accent); }
+
+  .main { padding:28px 32px; max-width:1400px; margin:0 auto; }
+
+  /* 업로드 존 */
+  #upload-section {
+    border:2px dashed var(--border); border-radius:16px;
+    padding:60px; text-align:center; cursor:pointer; transition:.2s;
+    background:var(--surface);
+  }
+  #upload-section:hover { border-color:var(--accent); background:var(--surface2); }
+  #upload-section.drag { border-color:var(--accent); background:var(--surface2); }
+  .upload-icon { font-size:40px; margin-bottom:16px; }
+  .upload-title { font-size:18px; font-weight:600; margin-bottom:8px; }
+  .upload-sub { font-size:13px; color:var(--text2); }
+  #file-input { display:none; }
+  .upload-btn {
+    display:inline-block; margin-top:20px; padding:10px 24px;
+    background:var(--accent); color:#fff; border-radius:8px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:.15s;
+  }
+  .upload-btn:hover { opacity:.85; }
+
+  /* KPI 카드 */
+  .kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:18px 20px;
+  }
+  .kpi-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+  .kpi-value { font-size:22px; font-weight:700; color:var(--text); }
+  .kpi-delta { font-size:12px; margin-top:4px; }
+  .kpi-delta.pos { color:var(--green); }
+  .kpi-delta.neg { color:var(--red); }
+
+  /* 탭 */
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+  .tab {
+    padding:10px 20px; font-size:13px; font-weight:500; color:var(--text2);
+    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:.15s;
+  }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* 섹션 */
+  .section-title { font-size:15px; font-weight:600; margin-bottom:16px; color:var(--text); }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:20px;
+  }
+  .card-title { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:16px; text-transform:uppercase; letter-spacing:.5px; }
+
+  /* 차트 */
+  .chart-wrap { position:relative; height:280px; }
+
+  /* 테이블 */
+  .table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th {
+    background:var(--surface2); padding:10px 14px; text-align:left;
+    font-size:11px; font-weight:600; color:var(--text2);
+    text-transform:uppercase; letter-spacing:.5px; white-space:nowrap;
+    border-bottom:1px solid var(--border);
+  }
+  tbody tr { border-bottom:1px solid var(--border); transition:.1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--surface2); }
+  tbody td { padding:10px 14px; color:var(--text); white-space:nowrap; }
+
+  /* 배지 */
+  .badge {
+    display:inline-block; padding:2px 8px; border-radius:4px;
+    font-size:11px; font-weight:600;
+  }
+  .badge-A { background:#10b98120; color:#10b981; }
+  .badge-B { background:#f59e0b20; color:#f59e0b; }
+  .badge-C { background:#ef444420; color:#ef4444; }
+  .badge-good { background:#10b98115; color:#10b981; }
+  .badge-warn { background:#f59e0b15; color:#f59e0b; }
+  .badge-danger { background:#ef444415; color:#ef4444; }
+
+  .div-tag {
+    display:inline-block; padding:2px 7px; border-radius:4px;
+    font-size:11px; font-weight:700;
+  }
+  .div-AAD { background:#4f7ef820; color:#4f7ef8; }
+  .div-ASD { background:#10b98120; color:#10b981; }
+  .div-EMD { background:#8b5cf620; color:#8b5cf6; }
+  .div-IATD { background:#f59e0b20; color:#f59e0b; }
+  .div-ISD { background:#06b6d420; color:#06b6d4; }
+  .div-PSD { background:#ec489920; color:#ec4899; }
+
+  .pos { color:var(--green); font-weight:600; }
+  .neg { color:var(--red); font-weight:600; }
+  .neu { color:var(--text2); }
+
+  /* 연도 선택 */
+  .year-selects { display:flex; gap:12px; align-items:center; margin-bottom:20px; }
+  .year-selects label { font-size:13px; color:var(--text2); }
+  .year-selects select {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); padding:6px 12px; border-radius:8px; font-size:13px;
+    font-family:'Pretendard',sans-serif;
+  }
+
+  /* 다운로드 */
+  .download-btn {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--accent); color:#fff; border:none;
+    padding:10px 22px; border-radius:8px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:.15s; font-family:'Pretendard',sans-serif;
+  }
+  .download-btn:hover { opacity:.85; }
+  .download-section { text-align:center; padding:40px; }
+  .download-section p { color:var(--text2); font-size:14px; margin-bottom:20px; }
+
+  /* 필터 */
+  .filter-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .filter-btn {
+    padding:5px 14px; border-radius:6px; font-size:12px; font-weight:600;
+    border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+    cursor:pointer; transition:.15s;
+  }
+  .filter-btn.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* 처리 중 스피너 */
+  #processing {
+    display:none; position:fixed; inset:0; background:#0f111780;
+    z-index:500; align-items:center; justify-content:center;
+  }
+  #processing.show { display:flex; }
+  .spinner {
+    width:40px; height:40px; border:3px solid var(--surface2);
+    border-top-color:var(--accent); border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty-state { padding:60px; text-align:center; color:var(--text3); font-size:14px; }
+
+  @media(max-width:900px) {
+    .kpi-grid { grid-template-columns:repeat(2,1fr); }
+    .grid-2 { grid-template-columns:1fr; }
+    .main { padding:16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="loading">
+  <div class="loading-logo">3M<span> B2B 분석</span></div>
+  <div style="font-size:13px;color:var(--text2)">분석 엔진을 초기화하는 중입니다...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="lbar"></div></div>
+  <div class="loading-msg" id="lmsg">Pyodide 로딩 중...</div>
+</div>
+
+<!-- 처리 중 -->
+<div id="processing"><div class="spinner"></div></div>
+
+<!-- 앱 -->
+<div id="app">
+  <header>
+    <div class="logo">3M<span> B2B 판매 분석</span></div>
+    <div class="header-right">
+      <div class="year-badge" id="year-info" style="display:none">
+        <strong id="y1-badge">-</strong> → <strong id="y2-badge">-</strong>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">데이터는 브라우저에서만 처리됩니다</div>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- 업로드 -->
+    <div id="upload-section" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📊</div>
+      <div class="upload-title">판매 데이터 엑셀 파일을 업로드하세요</div>
+      <div class="upload-sub">처리상태 "완료" 건만 자동 집계 · 데이터는 외부로 전혀 전송되지 않습니다</div>
+      <div class="upload-btn">파일 선택</div>
+      <input type="file" id="file-input" accept=".xlsx">
+    </div>
+
+    <!-- 분석 결과 (숨김) -->
+    <div id="result-section" style="display:none">
+
+      <!-- 연도 선택 -->
+      <div class="year-selects">
+        <label>Year 1</label>
+        <select id="sel-y1" onchange="renderAll()"></select>
+        <label>Year 2</label>
+        <select id="sel-y2" onchange="renderAll()"></select>
+      </div>
+
+      <!-- KPI -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- 탭 -->
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(0)">📅 월별 분석</div>
+        <div class="tab" onclick="switchTab(1)">🏆 제품 랭킹</div>
+        <div class="tab" onclick="switchTab(2)">👥 고객사 분석</div>
+        <div class="tab" onclick="switchTab(3)">📥 다운로드</div>
+      </div>
+
+      <!-- 탭1: 월별 분석 -->
+      <div class="tab-panel active" id="panel-0">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title" id="chart1-title">Year1 월별</div>
+            <div class="chart-wrap"><canvas id="chart-month1"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title" id="chart2-title">Year2 월별</div>
+            <div class="chart-wrap"><canvas id="chart-month2"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Division별 YoY 성장률</div>
+          <div class="table-wrap"><table id="tbl-yoy"></table></div>
+        </div>
+      </div>
+
+      <!-- 탭2: 제품 랭킹 -->
+      <div class="tab-panel" id="panel-1">
+        <div class="filter-row" id="grade-filter">
+          <span style="font-size:12px;color:var(--text2);align-self:center">등급 필터:</span>
+          <div class="filter-btn on" data-grade="A" onclick="toggleGrade(this)">A등급</div>
+          <div class="filter-btn on" data-grade="B" onclick="toggleGrade(this)">B등급</div>
+          <div class="filter-btn on" data-grade="C" onclick="toggleGrade(this)">C등급</div>
+        </div>
+        <div class="table-wrap"><table id="tbl-prod"></table></div>
+      </div>
+
+      <!-- 탭3: 고객사 분석 -->
+      <div class="tab-panel" id="panel-2">
+        <div class="filter-row" id="status-filter">
+          <span style="font-size:12px;color:var(--text2);align-self:center">상태 필터:</span>
+          <div class="filter-btn on" data-status="good" onclick="toggleStatus(this)">✅ 우량</div>
+          <div class="filter-btn on" data-status="warn" onclick="toggleStatus(this)">⚠️ 주의</div>
+          <div class="filter-btn on" data-status="danger" onclick="toggleStatus(this)">🔴 위험</div>
+        </div>
+        <div class="table-wrap"><table id="tbl-cust"></table></div>
+        <div class="kpi-grid" style="margin-top:20px" id="cust-summary"></div>
+      </div>
+
+      <!-- 탭4: 다운로드 -->
+      <div class="tab-panel" id="panel-3">
+        <div class="download-section">
+          <p>분석 결과를 엑셀 파일로 저장합니다</p>
+          <button class="download-btn" onclick="downloadExcel()">📥 엑셀 다운로드</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let pyodide = null;
+let dfData = null; // JS에서 다루는 분석 결과 데이터
+let chart1 = null, chart2 = null;
+
+const DIV_COLORS = {
+  AAD:'#4f7ef8', ASD:'#10b981', EMD:'#8b5cf6',
+  IATD:'#f59e0b', ISD:'#06b6d4', PSD:'#ec4899'
+};
+const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+// ── 로딩 ──────────────────────────────────────────────────
+async function initPyodide() {
+  const bar = document.getElementById('lbar');
+  const msg = document.getElementById('lmsg');
+
+  const steps = [
+    [15, 'Pyodide 로딩 중...'],
+    [40, 'micropip 초기화 중...'],
+    [60, 'pandas 설치 중...'],
+    [80, 'openpyxl 설치 중...'],
+    [95, '분석 엔진 준비 중...'],
+  ];
+  let si = 0;
+  const tick = setInterval(() => {
+    if (si < steps.length) {
+      bar.style.width = steps[si][0] + '%';
+      msg.textContent = steps[si][1];
+      si++;
+    }
+  }, 800);
+
+  pyodide = await loadPyodide();
+  await pyodide.loadPackage(['micropip']);
+  await pyodide.runPythonAsync(`
+import micropip
+await micropip.install(['pandas','openpyxl','xlsxwriter'])
+`);
+
+  clearInterval(tick);
+  bar.style.width = '100%';
+  msg.textContent = '준비 완료!';
+  await new Promise(r => setTimeout(r, 400));
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+initPyodide();
+
+// ── 파일 업로드 ────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  showProcessing(true);
+
+  const buf = await file.arrayBuffer();
+  const uint8 = new Uint8Array(buf);
+  pyodide.FS.writeFile('/data.xlsx', uint8);
+
+  const result = await pyodide.runPythonAsync(`
+import pandas as pd, json, warnings
+warnings.filterwarnings('ignore')
+
+df = pd.read_excel('/data.xlsx', sheet_name='주문')
+df['주문자ID'] = df['주문자ID'].astype(str).str.strip()
+df['가맹점코드'] = df['가맹점코드'].astype(str).str.strip()
+df = df[df['처리상태'] == '완료'].copy()
+
+AMT = '상품금액+부가세'
+QTY = '수량'
+
+years = sorted(df['주문일시(년)'].dropna().unique().tolist())
+json.dumps({'years': [int(y) for y in years]})
+`);
+
+  const meta = JSON.parse(result);
+  const years = meta.years;
+
+  const selY1 = document.getElementById('sel-y1');
+  const selY2 = document.getElementById('sel-y2');
+  selY1.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  selY2.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  selY1.value = years[0];
+  selY2.value = years[years.length - 1];
+
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('year-info').style.display = '';
+
+  showProcessing(false);
+  renderAll();
+});
+
+// ── 드래그앤드롭 ───────────────────────────────────────────
+const upSec = document.getElementById('upload-section');
+upSec.addEventListener('dragover', e => { e.preventDefault(); upSec.classList.add('drag'); });
+upSec.addEventListener('dragleave', () => upSec.classList.remove('drag'));
+upSec.addEventListener('drop', e => {
+  e.preventDefault(); upSec.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) { const dt = new DataTransfer(); dt.items.add(file); document.getElementById('file-input').files = dt.files; document.getElementById('file-input').dispatchEvent(new Event('change')); }
+});
+
+// ── 메인 렌더 ──────────────────────────────────────────────
+async function renderAll() {
+  const y1 = parseInt(document.getElementById('sel-y1').value);
+  const y2 = parseInt(document.getElementById('sel-y2').value);
+  document.getElementById('y1-badge').textContent = y1;
+  document.getElementById('y2-badge').textContent = y2;
+  showProcessing(true);
+
+  const result = await pyodide.runPythonAsync(`
+import pandas as pd, json, numpy as np
+df = pd.read_excel('/data.xlsx', sheet_name='주문')
+df['주문자ID'] = df['주문자ID'].astype(str).str.strip()
+df['가맹점코드'] = df['가맹점코드'].astype(str).str.strip()
+df = df[df['처리상태'] == '완료'].copy()
+AMT = '상품금액+부가세'
+QTY = '수량'
+y1, y2 = ${y1}, ${y2}
+df1 = df[df['주문일시(년)'] == y1]
+df2 = df[df['주문일시(년)'] == y2]
+
+# KPI
+t1 = float(df1[AMT].sum())
+t2 = float(df2[AMT].sum())
+yoy = (t2/t1-1)*100 if t1>0 else 0
+c1 = int(df1['주문자ID'].nunique())
+c2 = int(df2['주문자ID'].nunique())
+
+# 월별 Division 집계
+def monthly(data):
+    r = {}
+    for div in ['AAD','ASD','EMD','IATD','ISD','PSD']:
+        d = data[data['Division']==div]
+        r[div] = [float(d[d['주문일시(월)']==m][AMT].sum()) for m in range(1,13)]
+    return r
+
+m1 = monthly(df1)
+m2 = monthly(df2)
+
+# YoY Division
+divs = ['AAD','ASD','EMD','IATD','ISD','PSD']
+yoy_rows = []
+for div in divs:
+    s1 = float(df1[df1['Division']==div][AMT].sum())
+    s2 = float(df2[df2['Division']==div][AMT].sum())
+    yy = (s2/s1-1)*100 if s1>0 else None
+    yoy_rows.append({'div':div,'y1':s1,'y2':s2,'yoy':yy})
+
+# 제품 랭킹
+both = df[df['주문일시(년)'].isin([y1,y2])]
+pg = both.groupby(['제품명','Division','대분류','중분류']).agg(
+    total=(AMT,'sum'),
+    qty=(QTY,'sum')
+).reset_index()
+pg1 = df1.groupby('제품명')[AMT].sum().rename('s1')
+pg2 = df2.groupby('제품명')[AMT].sum().rename('s2')
+pg = pg.join(pg1,on='제품명').join(pg2,on='제품명')
+pg['s1'] = pg['s1'].fillna(0); pg['s2'] = pg['s2'].fillna(0)
+pg = pg.sort_values('total',ascending=False).reset_index(drop=True)
+tot = float(pg['total'].sum())
+pg['pct'] = pg['total']/tot*100
+pg['cum'] = pg['pct'].cumsum()/100
+pg['grade'] = pg['cum'].apply(lambda x: 'A' if x<=0.7 else('B' if x<=0.9 else 'C'))
+pg['rank'] = range(1,len(pg)+1)
+pg['avg24'] = pg['total']/24
+prod_rows = pg.head(200).to_dict('records')
+for r in prod_rows:
+    for k in r:
+        if isinstance(r[k],float) and np.isnan(r[k]): r[k]=0
+
+# 고객사
+custs = df['주문자ID'].unique().tolist()
+cust_rows = []
+for uid in custs:
+    da = df[df['주문자ID']==uid]
+    d1_ = da[da['주문일시(년)']==y1]
+    d2_ = da[da['주문일시(년)']==y2]
+    s1_ = float(d1_[AMT].sum()); s2_ = float(d2_[AMT].sum())
+    yy_ = (s2_/s1_-1)*100 if s1_>0 else None
+    code = str(da['가맹점코드'].iloc[0]) if len(da)>0 else '-'
+    ind  = str(da['주문자 기업구분'].iloc[0]) if len(da)>0 else '-'
+    mdiv = '-'
+    if not d2_.empty:
+        g = d2_.groupby('Division')[AMT].sum()
+        if not g.empty and g.sum()>0: mdiv = g.idxmax()
+    freq = int(len(d2_))
+    if s2_==0: status='danger'
+    elif yy_ is not None and yy_<-20: status='warn'
+    else: status='good'
+    cust_rows.append({'id':uid,'code':code,'ind':ind,'s1':s1_,'s2':s2_,'yoy':yy_,'div':mdiv,'freq':freq,'status':status})
+
+json.dumps({
+    'kpi':{'t1':t1,'t2':t2,'yoy':yoy,'c1':c1,'c2':c2},
+    'monthly1':m1,'monthly2':m2,
+    'yoy_rows':yoy_rows,
+    'prod_rows':prod_rows,
+    'cust_rows':cust_rows
+}, ensure_ascii=False, default=str)
+`);
+
+  dfData = JSON.parse(result);
+  dfData.y1 = y1; dfData.y2 = y2;
+
+  renderKPI(dfData);
+  renderMonthly(dfData);
+  renderYoY(dfData);
+  renderProd(dfData);
+  renderCust(dfData);
+
+  showProcessing(false);
+}
+
+// ── KPI ───────────────────────────────────────────────────
+function renderKPI(d) {
+  const {t1,t2,yoy,c1,c2} = d.kpi;
+  const y1=d.y1, y2=d.y2;
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Year1 (${y1}) 총매출</div>
+      <div class="kpi-value">₩${(t1/1e8).toFixed(1)}억</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Year2 (${y2}) 총매출</div>
+      <div class="kpi-value">₩${(t2/1e8).toFixed(1)}억</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">YoY 성장률</div>
+      <div class="kpi-value ${yoy>=0?'pos':'neg'}">${yoy>=0?'+':''}${yoy.toFixed(1)}%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Year1 고객사 수</div>
+      <div class="kpi-value">${c1.toLocaleString()}개</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Year2 고객사 수</div>
+      <div class="kpi-value">${c2.toLocaleString()}개</div>
+    </div>`;
+}
+
+// ── 월별 차트 ──────────────────────────────────────────────
+function makeMonthChart(canvasId, monthly, title) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const divs = ['AAD','ASD','EMD','IATD','ISD','PSD'];
+  const datasets = divs.map(div => ({
+    label: div,
+    data: monthly[div] || Array(12).fill(0),
+    backgroundColor: DIV_COLORS[div] + 'cc',
+    borderColor: DIV_COLORS[div],
+    borderWidth: 1,
+    borderRadius: 3,
+  }));
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels: MONTHS, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color:'#8b91b0', font:{size:11} } }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: ₩${(ctx.raw/1e6).toFixed(1)}백만` }
+      }},
+      scales: {
+        x: { stacked:true, ticks:{color:'#8b91b0',font:{size:11}}, grid:{color:'#2d3150'} },
+        y: { stacked:true, ticks:{color:'#8b91b0',font:{size:11},callback:v=>`₩${(v/1e6).toFixed(0)}M`}, grid:{color:'#2d3150'} }
+      }
+    }
+  });
+}
+
+function renderMonthly(d) {
+  document.getElementById('chart1-title').textContent = `Year1 (${d.y1}) 월별 Division 판매금액`;
+  document.getElementById('chart2-title').textContent = `Year2 (${d.y2}) 월별 Division 판매금액`;
+  if (chart1) chart1.destroy();
+  if (chart2) chart2.destroy();
+  chart1 = makeMonthChart('chart-month1', d.monthly1);
+  chart2 = makeMonthChart('chart-month2', d.monthly2);
+}
+
+// ── YoY 테이블 ─────────────────────────────────────────────
+function renderYoY(d) {
+  const tbl = document.getElementById('tbl-yoy');
+  let h = `<thead><tr><th>Division</th><th>Year1 (${d.y1})</th><th>Year2 (${d.y2})</th><th>YoY 성장률</th></tr></thead><tbody>`;
+  for (const r of d.yoy_rows) {
+    const yoyStr = r.yoy != null ? `<span class="${r.yoy>=0?'pos':'neg'}">${r.yoy>=0?'+':''}${r.yoy.toFixed(1)}%</span>` : '<span class="neu">N/A</span>';
+    h += `<tr>
+      <td><span class="div-tag div-${r.div}">${r.div}</span></td>
+      <td>₩${r.y1.toLocaleString('ko',{maximumFractionDigits:0})}</td>
+      <td>₩${r.y2.toLocaleString('ko',{maximumFractionDigits:0})}</td>
+      <td>${yoyStr}</td>
+    </tr>`;
+  }
+  tbl.innerHTML = h + '</tbody>';
+}
+
+// ── 제품 랭킹 ──────────────────────────────────────────────
+let activeGrades = new Set(['A','B','C']);
+
+function toggleGrade(el) {
+  const g = el.dataset.grade;
+  el.classList.toggle('on');
+  if (activeGrades.has(g)) activeGrades.delete(g);
+  else activeGrades.add(g);
+  renderProd(dfData);
+}
+
+function renderProd(d) {
+  const tbl = document.getElementById('tbl-prod');
+  const rows = d.prod_rows.filter(r => activeGrades.has(r.grade));
+  let h = `<thead><tr>
+    <th>#</th><th>제품명</th><th>Division</th><th>대분류</th><th>중분류</th>
+    <th>Year1</th><th>Year2</th><th>합산</th><th>수량</th>
+    <th>비중</th><th>등급</th><th>월평균</th><th>액션</th>
+  </tr></thead><tbody>`;
+  for (const r of rows) {
+    const action = r.grade==='A'?'✅ 공격 재고':r.grade==='B'?'⚡ 모니터링':'🔻 정리';
+    h += `<tr>
+      <td style="color:var(--text3)">${r.rank}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${r['제품명']}</td>
+      <td><span class="div-tag div-${r.Division}">${r.Division}</span></td>
+      <td style="color:var(--text2)">${r['대분류']||'-'}</td>
+      <td style="color:var(--text2)">${r['중분류']||'-'}</td>
+      <td>₩${Math.round(r.s1).toLocaleString()}</td>
+      <td>₩${Math.round(r.s2).toLocaleString()}</td>
+      <td style="font-weight:600">₩${Math.round(r.total).toLocaleString()}</td>
+      <td>${Math.round(r.qty).toLocaleString()}</td>
+      <td>${r.pct.toFixed(1)}%</td>
+      <td><span class="badge badge-${r.grade}">${r.grade}</span></td>
+      <td>₩${Math.round(r.avg24).toLocaleString()}</td>
+      <td style="color:var(--text2);font-size:12px">${action}</td>
+    </tr>`;
+  }
+  tbl.innerHTML = h + '</tbody>';
+}
+
+// ── 고객사 분석 ────────────────────────────────────────────
+let activeStatuses = new Set(['good','warn','danger']);
+
+function toggleStatus(el) {
+  const s = el.dataset.status;
+  el.classList.toggle('on');
+  if (activeStatuses.has(s)) activeStatuses.delete(s);
+  else activeStatuses.add(s);
+  renderCust(dfData);
+}
+
+function renderCust(d) {
+  const tbl = document.getElementById('tbl-cust');
+  const rows = d.cust_rows.filter(r => activeStatuses.has(r.status));
+  let h = `<thead><tr>
+    <th>주문자ID</th><th>가맹점코드</th><th>업종</th>
+    <th>Year1</th><th>Year2</th><th>증감율</th>
+    <th>주력Division</th><th>구매빈도</th><th>상태</th>
+  </tr></thead><tbody>`;
+  for (const r of rows) {
+    const yoyStr = r.yoy!=null ? `<span class="${r.yoy>=0?'pos':'neg'}">${r.yoy>=0?'+':''}${r.yoy.toFixed(1)}%</span>` : '<span class="neu">N/A</span>';
+    const statusMap = {good:'✅ 우량 재구매',warn:'⚠️ 이탈 주의',danger:'🔴 이탈 위험'};
+    h += `<tr>
+      <td style="font-weight:600">${r.id}</td>
+      <td style="color:var(--green);font-weight:600">${r.code}</td>
+      <td style="color:var(--text2)">${r.ind}</td>
+      <td>₩${Math.round(r.s1).toLocaleString()}</td>
+      <td>₩${Math.round(r.s2).toLocaleString()}</td>
+      <td>${yoyStr}</td>
+      <td>${r.div!=='-'?`<span class="div-tag div-${r.div}">${r.div}</span>`:'-'}</td>
+      <td>${r.freq}</td>
+      <td><span class="badge badge-${r.status}">${statusMap[r.status]}</span></td>
+    </tr>`;
+  }
+  tbl.innerHTML = h + '</tbody>';
+
+  // 요약
+  const good = d.cust_rows.filter(r=>r.status==='good').length;
+  const warn = d.cust_rows.filter(r=>r.status==='warn').length;
+  const danger = d.cust_rows.filter(r=>r.status==='danger').length;
+  document.getElementById('cust-summary').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">✅ 우량 재구매</div><div class="kpi-value" style="color:var(--green)">${good}개사</div></div>
+    <div class="kpi-card"><div class="kpi-label">⚠️ 이탈 주의</div><div class="kpi-value" style="color:var(--amber)">${warn}개사</div></div>
+    <div class="kpi-card"><div class="kpi-label">🔴 이탈 위험</div><div class="kpi-value" style="color:var(--red)">${danger}개사</div></div>
+    <div class="kpi-card"><div class="kpi-label">전체 고객사</div><div class="kpi-value">${d.cust_rows.length}개사</div></div>
+    <div class="kpi-card"><div class="kpi-label">분석 연도</div><div class="kpi-value" style="font-size:16px">${d.y1} → ${d.y2}</div></div>`;
+}
+
+// ── 다운로드 ──────────────────────────────────────────────
+async function downloadExcel() {
+  showProcessing(true);
+  const result = await pyodide.runPythonAsync(`
+import pandas as pd, io, base64
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+import warnings; warnings.filterwarnings('ignore')
+
+df = pd.read_excel('/data.xlsx', sheet_name='주문')
+df['주문자ID'] = df['주문자ID'].astype(str).str.strip()
+df = df[df['처리상태'] == '완료'].copy()
+AMT = '상품금액+부가세'; QTY = '수량'
+y1, y2 = ${dfData.y1}, ${dfData.y2}
+df1 = df[df['주문일시(년)']==y1]; df2 = df[df['주문일시(년)']==y2]
+
+buf = io.BytesIO()
+with pd.ExcelWriter(buf, engine='openpyxl') as w:
+    # 월별
+    m1 = df1.groupby(['주문일시(월)','Division'])[AMT].sum().reset_index()
+    m1.columns=['월','Division','판매금액']
+    m1.to_excel(w, sheet_name=f'월별분석_{y1}', index=False)
+    m2 = df2.groupby(['주문일시(월)','Division'])[AMT].sum().reset_index()
+    m2.columns=['월','Division','판매금액']
+    m2.to_excel(w, sheet_name=f'월별분석_{y2}', index=False)
+    # 제품
+    both = df[df['주문일시(년)'].isin([y1,y2])]
+    pg = both.groupby(['제품명','Division','대분류','중분류']).agg(합산판매액=(AMT,'sum'),합산수량=(QTY,'sum')).reset_index()
+    pg = pg.sort_values('합산판매액',ascending=False)
+    pg['매출비중(%)'] = (pg['합산판매액']/pg['합산판매액'].sum()*100).round(2)
+    pg['누적비중'] = pg['매출비중(%)'].cumsum()/100
+    pg['ABC등급'] = pg['누적비중'].apply(lambda x:'A' if x<=0.7 else('B' if x<=0.9 else 'C'))
+    pg.to_excel(w, sheet_name='제품랭킹', index=False)
+    # 고객사
+    custs = df['주문자ID'].unique()
+    rows=[]
+    for uid in custs:
+        da=df[df['주문자ID']==uid]; d1_=da[da['주문일시(년)']==y1]; d2_=da[da['주문일시(년)']==y2]
+        s1=d1_[AMT].sum(); s2=d2_[AMT].sum()
+        yy=(s2/s1-1)*100 if s1>0 else None
+        code=str(da['가맹점코드'].iloc[0]) if len(da)>0 else '-'
+        ind=str(da['주문자 기업구분'].iloc[0]) if len(da)>0 else '-'
+        mdiv='-'
+        if not d2_.empty:
+            g=d2_.groupby('Division')[AMT].sum()
+            if not g.empty and g.sum()>0: mdiv=g.idxmax()
+        status='이탈 위험' if s2==0 else('이탈 주의' if yy and yy<-20 else '우량 재구매')
+        rows.append({'주문자ID':uid,'가맹점코드':code,'업종':ind,f'Year1({y1})매출':s1,f'Year2({y2})매출':s2,'증감율(%)':round(yy,1) if yy else None,'주력Division':mdiv,'구매빈도(Year2)':len(d2_),'상태':status})
+    pd.DataFrame(rows).to_excel(w, sheet_name='고객사분석', index=False)
+
+base64.b64encode(buf.getvalue()).decode()
+`);
+
+  const link = document.createElement('a');
+  link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + result;
+  link.download = `3M_B2B_분석결과_${dfData.y1}_${dfData.y2}.xlsx`;
+  link.click();
+  showProcessing(false);
+}
+
+// ── 탭 전환 ───────────────────────────────────────────────
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+// ── 유틸 ──────────────────────────────────────────────────
+function showProcessing(show) {
+  document.getElementById('processing').classList.toggle('show', show);
+}
+</script>
+</body>
+</html>
