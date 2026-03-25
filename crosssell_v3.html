@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3M B2B 크로스셀 추천</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2d3150;
+  --accent:#4f7ef8; --accent2:#7c3aed; --green:#10b981; --red:#ef4444;
+  --amber:#f59e0b; --text:#e8eaf6; --text2:#8b91b0; --text3:#4f5470;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+#loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+.loading-logo{font-size:36px;font-weight:700;color:var(--accent);}
+.loading-logo span{color:var(--text2);font-weight:400;}
+.bar-wrap{width:260px;height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .3s;}
+.loading-msg{font-size:12px;color:var(--text2);}
+#processing{display:none;position:fixed;inset:0;background:#0f111780;z-index:500;align-items:center;justify-content:center;}
+#processing.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid var(--surface2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#app{display:none;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-size:16px;font-weight:700;color:var(--accent);}
+.logo span{color:var(--text2);font-weight:400;font-size:14px;}
+.safe-badge{font-size:11px;color:var(--text3);background:var(--surface2);padding:3px 10px;border-radius:99px;border:1px solid var(--border);}
+.main{padding:24px 28px;max-width:1500px;margin:0 auto;}
+#upload-zone{border:2px dashed var(--border);border-radius:14px;padding:48px;text-align:center;cursor:pointer;transition:.2s;background:var(--surface);}
+#upload-zone:hover,#upload-zone.drag{border-color:var(--accent);background:var(--surface2);}
+.up-icon{font-size:36px;margin-bottom:12px;}
+.up-title{font-size:17px;font-weight:600;margin-bottom:6px;}
+.up-sub{font-size:12px;color:var(--text2);margin-bottom:16px;}
+.up-btn{display:inline-block;padding:9px 22px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+#result{display:none;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.kpi-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.kpi-value{font-size:20px;font-weight:700;}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.search-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:13px;width:220px;font-family:'Pretendard',sans-serif;}
+.search-input::placeholder{color:var(--text3);}
+.filter-btn{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:.15s;}
+.filter-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.sort-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:12px;font-family:'Pretendard',sans-serif;}
+.result-count{font-size:12px;color:var(--text3);margin-left:auto;}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;}
+.cust-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;transition:.15s;}
+.cust-card:hover{border-color:var(--accent);background:var(--surface2);}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.card-id{font-size:14px;font-weight:700;color:var(--text);}
+.card-code{font-size:12px;color:var(--green);font-weight:600;}
+.card-meta{display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.meta-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.rec-list{display:flex;flex-direction:column;gap:8px;}
+.rec-item{background:var(--surface2);border-radius:8px;padding:10px 12px;border-left:3px solid var(--accent);}
+.rec-prod{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;line-height:1.4;}
+.rec-reason{font-size:11px;color:var(--text2);}
+.rec-cnt{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:5px;}
+.div-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;margin-right:4px;}
+.div-AAD{background:#4f7ef820;color:#4f7ef8;}
+.div-ASD{background:#10b98120;color:#10b981;}
+.div-EMD{background:#8b5cf620;color:#8b5cf6;}
+.div-IATD{background:#f59e0b20;color:#f59e0b;}
+.div-ISD{background:#06b6d420;color:#06b6d4;}
+.div-PSD{background:#ec489920;color:#ec4899;}
+.year-row{display:flex;gap:12px;align-items:center;margin-bottom:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+.year-row label{font-size:12px;color:var(--text2);}
+.year-row select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:13px;font-family:'Pretendard',sans-serif;}
+.year-row .apply-btn{padding:6px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Pretendard',sans-serif;}
+/* 가맹점 버튼 필터 */
+.code-btn-wrap{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
+.code-btn{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:.15s;}
+.code-btn:hover{border-color:var(--accent);color:var(--text);}
+.code-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+/* 대시보드 */
+.dashboard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;}
+.dash-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:16px;}
+.chart-wrap{height:260px;position:relative;}
+.empty{padding:60px;text-align:center;color:var(--text3);font-size:14px;}
+</style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="loading">
+  <div class="loading-logo">🔀 <span>크로스셀 추천</span></div>
+  <div style="font-size:12px;color:var(--text2)">분석 엔진 초기화 중...</div>
+  <div class="bar-wrap"><div class="bar" id="lbar"></div></div>
+  <div class="loading-msg" id="lmsg">Pyodide 로딩 중...</div>
+</div>
+
+<!-- 처리중 -->
+<div id="processing"><div class="spinner"></div></div>
+
+<!-- 앱 -->
+<div id="app">
+  <header>
+    <div class="logo">🔀 크로스셀 추천 <span>— 3M B2B 파트너몰</span></div>
+    <div class="safe-badge">데이터는 브라우저에서만 처리됩니다</div>
+  </header>
+
+  <div class="main">
+
+    <!-- 업로드 -->
+    <div id="upload-zone" onclick="document.getElementById('fi').click()">
+      <div class="up-icon">🔀</div>
+      <div class="up-title">판매 데이터 엑셀 파일을 업로드하세요</div>
+      <div class="up-sub">처리상태 "완료" 건만 분석 · 데이터는 외부로 전혀 전송되지 않습니다</div>
+      <div class="up-btn">파일 선택</div>
+      <input type="file" id="fi" accept=".xlsx" style="display:none">
+    </div>
+
+    <!-- 결과 -->
+    <div id="result">
+
+      <!-- 연도 선택 -->
+      <div class="year-row">
+        <label>분석 기준 연도</label>
+        <select id="sel-year"></select>
+        <button class="apply-btn" onclick="runAnalysis()">분석 실행</button>
+        <span style="font-size:11px;color:var(--text3);margin-left:8px">선택한 연도의 구매 데이터를 기반으로 크로스셀 기회를 분석합니다</span>
+      </div>
+
+      <!-- KPI -->
+      <div class="kpi-row" id="kpi-row"></div>
+
+      <!-- 대시보드 (가맹점별 뷰일 때 표시) -->
+      <div class="dashboard" id="dashboard" style="display:none">
+        <div class="dash-title">가맹점별 크로스셀 기회 요약</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:10px">가맹점별 총 추천 건수</div>
+            <div class="chart-wrap"><canvas id="chart-code"></canvas></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:10px">가맹점별 크로스셀 기회 고객사 수</div>
+            <div class="chart-wrap"><canvas id="chart-cust"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 가맹점 버튼 필터 (가맹점별 뷰일 때 표시) -->
+      <div id="code-btn-area" style="display:none">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">가맹점 선택 (클릭하면 해당 가맹점만 표시)</div>
+        <div class="code-btn-wrap" id="code-btns"></div>
+      </div>
+
+      <!-- 툴바 -->
+      <div class="toolbar">
+        <input class="search-input" id="search" type="text" placeholder="고객사ID / 가맹점코드 검색..." oninput="renderCards()">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:12px;color:var(--text2)">Division:</span>
+          <div class="filter-btn on" data-div="ALL" onclick="toggleDiv(this)">전체</div>
+          <div class="filter-btn" data-div="AAD" onclick="toggleDiv(this)">AAD</div>
+          <div class="filter-btn" data-div="ASD" onclick="toggleDiv(this)">ASD</div>
+          <div class="filter-btn" data-div="EMD" onclick="toggleDiv(this)">EMD</div>
+          <div class="filter-btn" data-div="IATD" onclick="toggleDiv(this)">IATD</div>
+          <div class="filter-btn" data-div="ISD" onclick="toggleDiv(this)">ISD</div>
+          <div class="filter-btn" data-div="PSD" onclick="toggleDiv(this)">PSD</div>
+        </div>
+        <select class="sort-select" id="sort-sel" onchange="renderCards()">
+          <option value="rec_cnt">추천 제품 수 순</option>
+          <option value="owned_cnt">보유 제품 수 순</option>
+          <option value="id">고객사ID 순</option>
+          <option value="code">가맹점코드 순</option>
+        </select>
+        <!-- 뷰 모드 토글 -->
+        <div style="display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:3px;">
+          <div class="filter-btn on" id="view-cust" onclick="setView('cust')" style="border:none;background:var(--accent);color:#fff;">고객사별</div>
+          <div class="filter-btn" id="view-code" onclick="setView('code')" style="border:none;">가맹점별</div>
+        </div>
+        <!-- 다운로드 버튼 -->
+        <button onclick="downloadExcel()" style="padding:7px 16px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Pretendard',sans-serif;display:flex;align-items:center;gap:5px;">
+          📥 엑셀 다운로드
+        </button>
+        <div class="result-count" id="result-count"></div>
+      </div>
+
+      <!-- 카드 그리드 -->
+      <div class="cards" id="cards"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let pyodide = null;
+let crossData = [];
+let activeDivFilter = 'ALL';
+let viewMode = 'cust';
+let activeCodeFilter = 'ALL'; // 가맹점 버튼 필터
+let chartCode = null, chartCust = null;
+
+// ── 뷰 모드 전환 ─────────────────────────────────────────
+function setView(mode) {
+  viewMode = mode;
+  const isCust = mode === 'cust';
+  document.getElementById('view-cust').classList.toggle('on', isCust);
+  document.getElementById('view-code').classList.toggle('on', !isCust);
+  document.getElementById('view-cust').style.background = isCust ? 'var(--accent)' : '';
+  document.getElementById('view-cust').style.color = isCust ? '#fff' : '';
+  document.getElementById('view-code').style.background = !isCust ? 'var(--accent)' : '';
+  document.getElementById('view-code').style.color = !isCust ? '#fff' : '';
+  // 가맹점 뷰 전용 UI 표시
+  document.getElementById('dashboard').style.display = isCust ? 'none' : 'block';
+  document.getElementById('code-btn-area').style.display = isCust ? 'none' : 'block';
+  document.getElementById('cards').style.display = isCust ? 'grid' : 'block';
+  if(!isCust) {
+    renderDashboard();
+    renderCodeBtns();
+  }
+  activeCodeFilter = 'ALL';
+  renderCards();
+}
+
+// ── 가맹점 버튼 렌더 ──────────────────────────────────────
+function renderCodeBtns() {
+  const rows = crossData.filter(r => r.recs.length > 0);
+  const codeMap = {};
+  for(const r of rows) {
+    if(!codeMap[r.code]) codeMap[r.code] = 0;
+    codeMap[r.code] += r.recs.length;
+  }
+  const codes = Object.entries(codeMap).sort((a,b) => b[1]-a[1]);
+  const wrap = document.getElementById('code-btns');
+  wrap.innerHTML = `
+    <div class="code-btn on" data-code="ALL" onclick="filterByCode(this)">전체 (${codes.length}개)</div>
+    ${codes.map(([code, cnt]) =>
+      `<div class="code-btn" data-code="${code}" onclick="filterByCode(this)">
+        가맹점 ${code} <span style="color:var(--accent);font-size:10px;margin-left:4px">${cnt}건</span>
+      </div>`
+    ).join('')}`;
+}
+
+function filterByCode(el) {
+  document.querySelectorAll('.code-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  activeCodeFilter = el.dataset.code;
+  renderCards();
+}
+
+// ── 대시보드 차트 ─────────────────────────────────────────
+function renderDashboard() {
+  const rows = crossData.filter(r => r.recs.length > 0);
+  const codeMap = {};
+  for(const r of rows) {
+    if(!codeMap[r.code]) codeMap[r.code] = {recs:0, custs:0};
+    codeMap[r.code].recs += r.recs.length;
+    codeMap[r.code].custs += 1;
+  }
+  const sorted = Object.entries(codeMap).sort((a,b) => b[1].recs - a[1].recs).slice(0, 15);
+  const labels = sorted.map(([code]) => `가맹점 ${code}`);
+  const recData = sorted.map(([,v]) => v.recs);
+  const custData = sorted.map(([,v]) => v.custs);
+
+  const cfg = (data, color, label) => ({
+    type:'bar',
+    data:{ labels, datasets:[{label, data, backgroundColor: color+'cc', borderColor: color, borderWidth:1, borderRadius:4}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.raw.toLocaleString()}`}}},
+      scales:{
+        x:{ticks:{color:'#8b91b0',font:{size:10}}, grid:{color:'#2d3150'}},
+        y:{ticks:{color:'#8b91b0',font:{size:10}}, grid:{color:'#2d3150'}}
+      }
+    }
+  });
+
+  if(chartCode) chartCode.destroy();
+  if(chartCust) chartCust.destroy();
+  chartCode = new Chart(document.getElementById('chart-code').getContext('2d'), cfg(recData,'#4f7ef8','추천건수'));
+  chartCust = new Chart(document.getElementById('chart-cust').getContext('2d'), cfg(custData,'#10b981','고객사수'));
+}
+
+// ── 로딩 ─────────────────────────────────────────────────
+async function initPyodide() {
+  const bar = document.getElementById('lbar');
+  const msg = document.getElementById('lmsg');
+  const steps = [[15,'Pyodide 로딩 중...'],[45,'micropip 초기화 중...'],[65,'pandas 설치 중...'],[85,'openpyxl 설치 중...'],[95,'준비 중...']];
+  let si = 0;
+  const t = setInterval(() => { if(si<steps.length){bar.style.width=steps[si][0]+'%';msg.textContent=steps[si][1];si++;} }, 900);
+  pyodide = await loadPyodide();
+  await pyodide.loadPackage(['micropip']);
+  await pyodide.runPythonAsync(`import micropip\nawait micropip.install(['pandas','openpyxl'])`);
+  clearInterval(t);
+  bar.style.width='100%'; msg.textContent='준비 완료!';
+  await new Promise(r=>setTimeout(r,400));
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+initPyodide();
+
+// ── 파일 업로드 ──────────────────────────────────────────
+document.getElementById('fi').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  showProc(true);
+  const buf = await file.arrayBuffer();
+  pyodide.FS.writeFile('/data.xlsx', new Uint8Array(buf));
+
+  const r = await pyodide.runPythonAsync(`
+import pandas as pd, json
+df = pd.read_excel('/data.xlsx', sheet_name='주문')
+df = df[df['처리상태']=='완료'].copy()
+years = sorted(df['주문일시(년)'].dropna().unique().tolist())
+json.dumps({'years':[int(y) for y in years]})
+`);
+  const meta = JSON.parse(r);
+  const sel = document.getElementById('sel-year');
+  sel.innerHTML = meta.years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+  sel.value = meta.years[meta.years.length-1]; // 최신 연도 기본 선택
+
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('result').style.display='block';
+  showProc(false);
+  runAnalysis();
+});
+
+// 드래그앤드롭
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{
+  e.preventDefault();uz.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f){const dt=new DataTransfer();dt.items.add(f);document.getElementById('fi').files=dt.files;document.getElementById('fi').dispatchEvent(new Event('change'));}
+});
+
+// ── 분석 실행 ────────────────────────────────────────────
+async function runAnalysis() {
+  const year = parseInt(document.getElementById('sel-year').value);
+  showProc(true);
+
+  const r = await pyodide.runPythonAsync(`
+import pandas as pd, json, numpy as np
+from itertools import combinations
+from collections import Counter
+
+df = pd.read_excel('/data.xlsx', sheet_name='주문')
+df['주문자ID'] = df['주문자ID'].astype(str).str.strip()
+df['가맹점코드'] = df['가맹점코드'].astype(str).str.strip()
+df = df[df['처리상태']=='완료'].copy()
+AMT = '상품금액+부가세'
+
+year = ${year}
+dfy = df[df['주문일시(년)']==year].copy()
+
+# 주문 묶음 키 (같은 날 같은 고객사)
+dfy['order_key'] = (
+    dfy['주문자ID'] + '_' +
+    dfy['주문일시(년)'].astype(str) + '_' +
+    dfy['주문일시(월)'].astype(str) + '_' +
+    dfy['주문일시(일)'].astype(str)
+)
+
+# 동반구매 빈도 집계
+order_prods = dfy.groupby('order_key')['제품명'].apply(list)
+pair_counter = Counter()
+for prods in order_prods:
+    uniq = list(set(prods))
+    if len(uniq) >= 2:
+        for a,b in combinations(sorted(uniq),2):
+            pair_counter[(a,b)] += 1
+
+# 제품별 Division 매핑
+prod_div = dfy.drop_duplicates('제품명').set_index('제품명')['Division'].to_dict()
+
+# 고객사별 구매 제품 & 메타
+cust_prods = dfy.groupby('주문자ID')['제품명'].apply(set).to_dict()
+cust_code = dfy.drop_duplicates('주문자ID').set_index('주문자ID')['가맹점코드'].apply(lambda x: str(int(float(x))) if str(x).replace('.','').isdigit() else str(x)).to_dict()
+cust_ind  = dfy.drop_duplicates('주문자ID').set_index('주문자ID')['주문자 기업구분'].to_dict()
+cust_amt  = dfy.groupby('주문자ID')[AMT].sum().to_dict()
+cust_div  = {}
+for uid in cust_prods:
+    g = dfy[dfy['주문자ID']==uid].groupby('Division')[AMT].sum()
+    cust_div[uid] = g.idxmax() if not g.empty and g.sum()>0 else '-'
+
+top_pairs = pair_counter.most_common(1000)
+
+rows = []
+for uid, owned in cust_prods.items():
+    recs = {}
+    for (a,b), cnt in top_pairs:
+        if cnt < 2: continue
+        if a in owned and b not in owned:
+            if b not in recs or recs[b]['cnt']<cnt:
+                recs[b]={'prod':b,'div':str(prod_div.get(b,'-')),'cnt':cnt,'trigger':a}
+        if b in owned and a not in owned:
+            if a not in recs or recs[a]['cnt']<cnt:
+                recs[a]={'prod':a,'div':str(prod_div.get(a,'-')),'cnt':cnt,'trigger':b}
+    sorted_recs = sorted(recs.values(),key=lambda x:-x['cnt'])[:6]
+    rows.append({
+        'id': uid,
+        'code': str(cust_code.get(uid,'-')),
+        'ind': str(cust_ind.get(uid,'-')),
+        'amt': float(cust_amt.get(uid,0)),
+        'main_div': str(cust_div.get(uid,'-')),
+        'owned_cnt': len(owned),
+        'recs': sorted_recs,
+        'rec_divs': list(set(r['div'] for r in sorted_recs))
+    })
+
+rows.sort(key=lambda x: -len(x['recs']))
+
+total_cust = len(rows)
+has_rec = len([r for r in rows if r['recs']])
+total_rec = sum(len(r['recs']) for r in rows)
+
+json.dumps({
+    'year': year,
+    'summary': {'total_cust':total_cust,'has_rec':has_rec,'total_rec':total_rec},
+    'rows': rows
+}, ensure_ascii=False, default=str)
+`);
+
+  const data = JSON.parse(r);
+  crossData = data.rows;
+
+  // KPI
+  const s = data.summary;
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi"><div class="kpi-label">분석 고객사 수</div><div class="kpi-value">${s.total_cust.toLocaleString()}개사</div></div>
+    <div class="kpi"><div class="kpi-label">크로스셀 기회 고객사</div><div class="kpi-value" style="color:var(--accent)">${s.has_rec.toLocaleString()}개사</div></div>
+    <div class="kpi"><div class="kpi-label">총 추천 제품 건수</div><div class="kpi-value" style="color:var(--green)">${s.total_rec.toLocaleString()}건</div></div>
+    <div class="kpi"><div class="kpi-label">기준 연도</div><div class="kpi-value" style="font-size:18px">${data.year}년</div></div>`;
+
+  showProc(false);
+  renderCards();
+}
+
+// ── Division 필터 ─────────────────────────────────────────
+function toggleDiv(el) {
+  document.querySelectorAll('[data-div]').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');
+  activeDivFilter = el.dataset.div;
+  renderCards();
+}
+
+// ── 카드 렌더 ────────────────────────────────────────────
+function getFilteredRows() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const sort = document.getElementById('sort-sel').value;
+  let rows = crossData.filter(r => r.recs.length > 0);
+  if(q) rows = rows.filter(r => r.id.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+  if(activeDivFilter !== 'ALL') rows = rows.filter(r => r.rec_divs.includes(activeDivFilter));
+  // 가맹점 버튼 필터
+  if(activeCodeFilter !== 'ALL') rows = rows.filter(r => r.code === activeCodeFilter);
+  if(sort==='rec_cnt') rows.sort((a,b)=>b.recs.length-a.recs.length);
+  else if(sort==='owned_cnt') rows.sort((a,b)=>b.owned_cnt-a.owned_cnt);
+  else if(sort==='code') rows.sort((a,b)=>a.code.localeCompare(b.code));
+  else rows.sort((a,b)=>a.id.localeCompare(b.id));
+  return rows;
+}
+
+function renderCards() {
+  const rows = getFilteredRows();
+  const container = document.getElementById('cards');
+
+  if(rows.length===0){
+    container.innerHTML = `<div class="empty" style="grid-column:1/-1">조건에 맞는 크로스셀 기회가 없습니다</div>`;
+    document.getElementById('result-count').textContent = '0개';
+    return;
+  }
+
+  if(viewMode === 'cust') {
+    // ── 고객사별 카드 뷰 ──────────────────────────────────
+    document.getElementById('result-count').textContent = `${rows.length}개 고객사`;
+    container.style.display = 'grid';
+    container.innerHTML = rows.map(r => {
+      const recItems = r.recs.map(rec => `
+        <div class="rec-item" style="border-left-color:${divColor(rec.div)}">
+          <div class="rec-prod"><span class="div-tag div-${rec.div}">${rec.div}</span>${rec.prod}</div>
+          <div class="rec-reason"><span class="rec-cnt">${rec.cnt}회</span>"${shorten(rec.trigger)}" 구매 고객과 함께 구매</div>
+        </div>`).join('');
+      return `
+      <div class="cust-card">
+        <div class="card-header">
+          <div>
+            <div class="card-id">${r.id}</div>
+            <div class="card-code">가맹점 ${r.code}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:700;color:var(--accent)">${r.recs.length}</div>
+            <div style="font-size:10px;color:var(--text3)">추천 제품</div>
+          </div>
+        </div>
+        <div class="card-meta">
+          <span class="meta-tag">${r.ind}</span>
+          <span class="meta-tag">주력: ${r.main_div}</span>
+          <span class="meta-tag">보유 ${r.owned_cnt}종</span>
+          <span class="meta-tag">₩${(r.amt/1e6).toFixed(0)}백만</span>
+        </div>
+        <div class="rec-list">${recItems}</div>
+      </div>`;
+    }).join('');
+
+  } else {
+    // ── 가맹점별 묶음 뷰 ──────────────────────────────────
+    // 가맹점코드로 그룹핑
+    const codeMap = {};
+    for(const r of rows) {
+      if(!codeMap[r.code]) codeMap[r.code] = [];
+      codeMap[r.code].push(r);
+    }
+    const codes = Object.keys(codeMap).sort((a,b) => codeMap[b].length - codeMap[a].length);
+    document.getElementById('result-count').textContent = `${codes.length}개 가맹점 / ${rows.length}개 고객사`;
+
+    container.style.display = 'block';
+    container.innerHTML = codes.map(code => {
+      const custs = codeMap[code];
+      const totalRecs = custs.reduce((s,r)=>s+r.recs.length,0);
+      const totalAmt = custs.reduce((s,r)=>s+r.amt,0);
+      // 이 가맹점 전체에서 가장 많이 추천된 제품
+      const recCount = {};
+      for(const r of custs) for(const rec of r.recs) {
+        if(!recCount[rec.prod]) recCount[rec.prod] = {prod:rec.prod,div:rec.div,cnt:0,cust_cnt:0};
+        recCount[rec.prod].cnt += rec.cnt;
+        recCount[rec.prod].cust_cnt += 1;
+      }
+      const topRecs = Object.values(recCount).sort((a,b)=>b.cust_cnt-a.cust_cnt).slice(0,5);
+
+      const custList = custs.map(r =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:6px;margin-bottom:6px;">
+          <div>
+            <span style="font-size:12px;font-weight:600">${r.id}</span>
+            <span style="font-size:11px;color:var(--text2);margin-left:8px">${r.ind} · 보유 ${r.owned_cnt}종</span>
+          </div>
+          <span style="font-size:11px;color:var(--accent);font-weight:600">추천 ${r.recs.length}개</span>
+        </div>`
+      ).join('');
+
+      const topRecItems = topRecs.map(rec =>
+        `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span class="div-tag div-${rec.div}">${rec.div}</span>
+          <span style="font-size:12px;flex:1">${shorten(rec.prod,30)}</span>
+          <span style="font-size:11px;color:var(--text2)">${rec.cust_cnt}개사 해당</span>
+        </div>`
+      ).join('');
+
+      return `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;">
+        <!-- 가맹점 헤더 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--green)">가맹점 ${code}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${custs.length}개 고객사 · 총 ₩${(totalAmt/1e6).toFixed(0)}백만</div>
+          </div>
+          <div style="display:flex;gap:16px;text-align:center">
+            <div><div style="font-size:20px;font-weight:700;color:var(--accent)">${custs.length}</div><div style="font-size:10px;color:var(--text3)">고객사</div></div>
+            <div><div style="font-size:20px;font-weight:700;color:var(--amber)">${totalRecs}</div><div style="font-size:10px;color:var(--text3)">총 추천</div></div>
+          </div>
+        </div>
+        <!-- 2열 레이아웃 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div>
+            <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">소속 고객사</div>
+            ${custList}
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">가맹점 공통 추천 제품 Top 5</div>
+            ${topRecItems || '<div style="font-size:12px;color:var(--text3)">추천 제품 없음</div>'}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── 엑셀 다운로드 ─────────────────────────────────────────
+async function downloadExcel() {
+  showProc(true);
+  const rows = getFilteredRows();
+  const year = document.getElementById('sel-year').value;
+
+  // 고객사별 시트 데이터
+  const custSheet = [];
+  for(const r of rows) {
+    for(const rec of r.recs) {
+      custSheet.push({
+        '가맹점코드': r.code,
+        '고객사ID': r.id,
+        '업종': r.ind,
+        '주력Division': r.main_div,
+        '보유제품수': r.owned_cnt,
+        '연간매출(원)': Math.round(r.amt),
+        '추천제품': rec.prod,
+        '추천제품Division': rec.div,
+        '동반구매횟수': rec.cnt,
+        '추천근거(트리거제품)': rec.trigger
+      });
+    }
+  }
+
+  // 가맹점별 요약 데이터
+  const codeMap = {};
+  for(const r of rows) {
+    if(!codeMap[r.code]) codeMap[r.code] = {고객사수:0, 총추천건수:0, 총매출:0, 고객사목록:[]};
+    codeMap[r.code].고객사수++;
+    codeMap[r.code].총추천건수 += r.recs.length;
+    codeMap[r.code].총매출 += r.amt;
+    codeMap[r.code].고객사목록.push(r.id);
+  }
+  const codeSheet = Object.entries(codeMap).map(([code, v]) => ({
+    '가맹점코드': code,
+    '소속고객사수': v.고객사수,
+    '총크로스셀추천건수': v.총추천건수,
+    '총매출(원)': Math.round(v.총매출),
+    '고객사목록': v.고객사목록.join(', ')
+  })).sort((a,b) => b['총크로스셀추천건수'] - a['총크로스셀추천건수']);
+
+  // SheetJS로 엑셀 생성
+  const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs');
+  const wb = XLSX.utils.book_new();
+
+  const ws1 = XLSX.utils.json_to_sheet(custSheet);
+  XLSX.utils.book_append_sheet(wb, ws1, '고객사별_크로스셀추천');
+
+  const ws2 = XLSX.utils.json_to_sheet(codeSheet);
+  XLSX.utils.book_append_sheet(wb, ws2, '가맹점별_요약');
+
+  XLSX.writeFile(wb, `3M_크로스셀추천_${year}년.xlsx`);
+  showProc(false);
+}
+
+function divColor(div) {
+  const m = {AAD:'#4f7ef8',ASD:'#10b981',EMD:'#8b5cf6',IATD:'#f59e0b',ISD:'#06b6d4',PSD:'#ec4899'};
+  return m[div]||'#4f7ef8';
+}
+function shorten(s, n=20) { return s && s.length>n ? s.slice(0,n)+'...' : s; }
+function showProc(v) { document.getElementById('processing').classList.toggle('show',v); }
+</script>
+</body>
+</html>
