@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3M B2B 지역 분석 v5</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2d3150;--accent:#4f7ef8;--accent2:#7c3aed;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--text:#e8eaf6;--text2:#8b91b0;--text3:#4f5470;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+#loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+.loading-logo{font-size:34px;font-weight:700;color:var(--accent);}
+.loading-logo span{color:var(--text2);font-weight:400;}
+.bar-wrap{width:260px;height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .3s;}
+.loading-msg{font-size:12px;color:var(--text2);}
+#processing{display:none;position:fixed;inset:0;background:#0f111780;z-index:500;align-items:center;justify-content:center;}
+#processing.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid var(--surface2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#app{display:none;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-size:16px;font-weight:700;color:var(--accent);}
+.logo span{color:var(--text2);font-weight:400;font-size:14px;}
+.safe-badge{font-size:11px;color:var(--text3);background:var(--surface2);padding:3px 10px;border-radius:99px;border:1px solid var(--border);}
+.main{padding:24px 28px;max-width:1500px;margin:0 auto;}
+#upload-zone{border:2px dashed var(--border);border-radius:14px;padding:48px;text-align:center;cursor:pointer;transition:.2s;background:var(--surface);}
+#upload-zone:hover,#upload-zone.drag{border-color:var(--accent);background:var(--surface2);}
+.up-icon{font-size:36px;margin-bottom:12px;}
+.up-title{font-size:17px;font-weight:600;margin-bottom:6px;}
+.up-sub{font-size:12px;color:var(--text2);margin-bottom:16px;}
+.up-btn{display:inline-block;padding:9px 22px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+#result{display:none;}
+.year-row{display:flex;gap:12px;align-items:center;margin-bottom:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;}
+.year-row label{font-size:12px;color:var(--text2);}
+.year-row select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:13px;font-family:'Pretendard',sans-serif;}
+.apply-btn{padding:6px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Pretendard',sans-serif;}
+.dl-btn{padding:6px 16px;background:var(--green);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Pretendard',sans-serif;margin-left:auto;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.kpi-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.kpi-value{font-size:20px;font-weight:700;}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.panel{display:none;}
+.panel.active{display:block;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+.card-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:14px;}
+.chart-wrap{height:300px;position:relative;}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{background:var(--surface2);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);transition:.1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:10px 14px;color:var(--text);white-space:nowrap;}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.badge-danger{background:#ef444415;color:#ef4444;}
+.badge-warn{background:#f59e0b15;color:#f59e0b;}
+.badge-good{background:#10b98115;color:#10b981;}
+.div-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;}
+.div-AAD{background:#4f7ef820;color:#4f7ef8;}.div-ASD{background:#10b98120;color:#10b981;}
+.div-EMD{background:#8b5cf620;color:#8b5cf6;}.div-IATD{background:#f59e0b20;color:#f59e0b;}
+.div-ISD{background:#06b6d420;color:#06b6d4;}.div-PSD{background:#ec489920;color:#ec4899;}
+.pos{color:#10b981;font-weight:600;}.neg{color:#ef4444;font-weight:600;}.neu{color:#8b91b0;}
+.search-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;width:220px;font-family:'Pretendard',sans-serif;}
+.search-input::placeholder{color:var(--text3);}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.empty{padding:40px;text-align:center;color:var(--text3);font-size:13px;}
+.section-sub{font-size:12px;color:var(--text3);margin-bottom:10px;}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr);}.grid2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="loading-logo">📍 <span>지역 분석 v4</span></div>
+  <div style="font-size:12px;color:var(--text2)">분석 엔진 초기화 중...</div>
+  <div class="bar-wrap"><div class="bar" id="lbar"></div></div>
+  <div class="loading-msg" id="lmsg">Pyodide 로딩 중...</div>
+</div>
+<div id="processing"><div class="spinner"></div></div>
+<div id="app">
+  <header>
+    <div class="logo">📍 지역 분석 <span>v5 — 3M B2B 파트너몰</span></div>
+    <div class="safe-badge">데이터는 브라우저에서만 처리됩니다</div>
+  </header>
+  <div class="main">
+    <div id="upload-zone" onclick="document.getElementById('fi').click()">
+      <div class="up-icon">📍</div>
+      <div class="up-title">판매 데이터 엑셀 파일을 업로드하세요</div>
+      <div class="up-sub">우편번호 기반 시 단위 지역 분석 · 처리상태 "완료" 건만 집계</div>
+      <div class="up-btn">파일 선택</div>
+      <input type="file" id="fi" accept=".xlsx" style="display:none">
+    </div>
+    <div id="result">
+      <div class="year-row">
+        <label>Year 1</label><select id="sel-y1"></select>
+        <label>Year 2</label><select id="sel-y2"></select>
+        <button class="apply-btn" onclick="runAnalysis()">분석 실행</button>
+        <button class="dl-btn" onclick="downloadExcel()">📥 엑셀 다운로드</button>
+      </div>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(0)">📊 지역별 매출</div>
+        <div class="tab" onclick="switchTab(1)">⚠️ 이탈 위험 지역</div>
+        <div class="tab" onclick="switchTab(2)">🎯 신규 타겟 추천</div>
+        <div class="tab" onclick="switchTab(3)">🔀 지역별 크로스셀</div>
+        <div class="tab" onclick="switchTab(4)">🏆 Division 분포</div>
+        <div class="tab" onclick="switchTab(5)">🏪 가맹점별 지역</div>
+      </div>
+      <!-- 탭0: 지역별 매출 -->
+      <div class="panel active" id="panel-0">
+        <div class="grid2">
+          <div class="card"><div class="card-title" id="chart0-title">Year2 지역별 매출 (상위 15)</div><div class="chart-wrap"><canvas id="chart-region"></canvas></div></div>
+          <div class="card"><div class="card-title">YoY 성장률 (상위 15)</div><div class="chart-wrap"><canvas id="chart-yoy"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <input class="search-input" id="search-region" type="text" placeholder="지역 검색..." oninput="renderRegionTable()">
+          </div>
+          <div class="card-title">시 단위 상세 현황</div>
+          <div class="table-wrap"><table id="tbl-region"></table></div>
+        </div>
+      </div>
+      <!-- 탭1: 이탈 위험 지역 -->
+      <div class="panel" id="panel-1">
+        <div class="grid2">
+          <div class="card"><div class="card-title">이탈 위험 고객사 지역 분포</div><div class="chart-wrap"><canvas id="chart-churn"></canvas></div></div>
+          <div class="card"><div class="card-title">지역별 이탈 위험도 요약</div><div class="table-wrap" style="max-height:320px;overflow-y:auto"><table id="tbl-churn-summary"></table></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">이탈 위험 · 주의 고객사 상세 목록</div>
+          <div class="section-sub">기준: 🔴 이탈 위험 = Year2 매출 0원 / ⚠️ 이탈 주의 = Year2 매출 Year1 대비 -20% 초과 감소</div>
+          <div class="toolbar">
+            <input class="search-input" id="search-churn" type="text" placeholder="고객사ID / 지역 검색..." oninput="renderChurnDetail()">
+            <div style="display:flex;gap:6px">
+              <div class="tab" id="churn-filter-all" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);cursor:pointer;font-size:12px" onclick="setChurnFilter('all')">전체</div>
+              <div class="tab" id="churn-filter-danger" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:12px" onclick="setChurnFilter('danger')">🔴 이탈 위험</div>
+              <div class="tab" id="churn-filter-warn" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:12px" onclick="setChurnFilter('warn')">⚠️ 이탈 주의</div>
+            </div>
+          </div>
+          <div class="table-wrap"><table id="tbl-churn-detail"></table></div>
+        </div>
+      </div>
+      <!-- 탭2: 신규 타겟 추천 -->
+      <div class="panel" id="panel-2">
+        <div class="card">
+          <div class="card-title">신규 영업 타겟 지역 추천</div>
+          <div class="section-sub">기준: YoY 고성장 · 고객사 밀집 · Year2 신규 진입 지역</div>
+          <div class="table-wrap"><table id="tbl-target"></table></div>
+        </div>
+      </div>
+      <!-- 탭3: 지역별 크로스셀 -->
+      <div class="panel" id="panel-3">
+        <div class="card">
+          <div class="card-title">지역별 크로스셀 기회 — 같은 지역 내 동반 구매 Top 조합</div>
+          <div class="toolbar"><input class="search-input" id="search-cross" type="text" placeholder="지역 검색..." oninput="renderCrossTab()"></div>
+          <div class="table-wrap"><table id="tbl-cross"></table></div>
+        </div>
+      </div>
+      <!-- 탭4: Division 분포 -->
+      <div class="panel" id="panel-4">
+        <div class="card"><div class="card-title">지역별 Division 매출 구성 (상위 15)</div>
+          <div class="chart-wrap" style="height:320px"><canvas id="chart-div"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="toolbar"><input class="search-input" id="search-div" type="text" placeholder="지역 검색..." oninput="renderDivTable()"></div>
+          <div class="table-wrap"><table id="tbl-div"></table></div>
+        </div>
+      </div>
+      <!-- 탭5: 가맹점별 지역 -->
+      <div class="panel" id="panel-5">
+        <div class="card">
+          <div class="card-title">가맹점별 지역 매출 현황</div>
+          <div class="toolbar">
+            <input class="search-input" id="search-dealer" type="text" placeholder="가맹점코드 검색..." oninput="renderDealerTab()">
+          </div>
+          <div class="table-wrap"><table id="tbl-dealer"></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+let pyodide=null, D=null, churnFilter='all';
+let charts={};
+
+// ── 우편번호 앞 3자리 → 시 단위 매핑 ──────────────────────
+const Z3C = {
+  '026':'서울 종로구','030':'서울 중구','040':'서울 용산구','045':'서울 성동구','049':'서울 광진구',
+  '058':'서울 동대문구','060':'서울 중랑구','064':'서울 성북구','071':'서울 강북구','075':'서울 도봉구',
+  '079':'서울 노원구','082':'서울 은평구','086':'서울 서대문구','090':'서울 마포구',
+  '100':'서울 양천구','102':'서울 강서구','104':'경기 고양시','107':'서울 구로구','108':'서울 금천구',
+  '111':'서울 영등포구','114':'서울 동작구','117':'서울 관악구','119':'서울 서초구',
+  '121':'서울 강남구','122':'서울 송파구','125':'서울 강동구',
+  '127':'경기 수원시','128':'경기 수원시','129':'경기 수원시',
+  '130':'경기 성남시','131':'경기 성남시','135':'경기 의정부시',
+  '140':'경기 안양시','141':'경기 안양시','144':'경기 부천시','145':'경기 부천시',
+  '148':'경기 광명시','151':'경기 평택시','152':'경기 평택시','155':'경기 동두천시',
+  '157':'경기 안산시','158':'경기 안산시',
+  '160':'경기 고양시','161':'경기 고양시','162':'경기 고양시','163':'경기 고양시',
+  '169':'경기 과천시','170':'경기 구리시','172':'경기 남양주시','173':'경기 남양주시',
+  '175':'경기 오산시','176':'경기 시흥시','177':'경기 시흥시','179':'경기 군포시',
+  '181':'경기 의왕시','182':'경기 하남시',
+  '183':'경기 용인시','184':'경기 용인시','185':'경기 용인시',
+  '187':'경기 파주시','188':'경기 파주시','190':'경기 이천시','193':'경기 안성시',
+  '195':'경기 김포시','197':'경기 화성시','198':'경기 화성시',
+  '200':'경기 광주시','202':'경기 양주시','205':'경기 포천시',
+  '207':'경기 여주시','209':'경기 연천군','210':'경기 가평군','212':'경기 양평군',
+  '215':'인천 중구','216':'인천 연수구','217':'인천 동구','218':'인천 미추홀구',
+  '219':'인천 연수구','221':'인천 남동구','223':'인천 부평구','226':'인천 계양구',
+  '228':'인천 서구','229':'인천 강화군',
+  '240':'강원 춘천시','241':'강원 춘천시','245':'강원 원주시','246':'강원 원주시',
+  '248':'강원 강릉시','250':'강원 동해시','253':'강원 태백시','255':'강원 속초시',
+  '257':'강원 삼척시','260':'강원 홍천군','263':'강원 횡성군','266':'강원 영월군',
+  '269':'강원 평창군','272':'강원 정선군','275':'강원 철원군','278':'강원 화천군',
+  '281':'강원 양구군','283':'강원 인제군','286':'강원 고성군',
+  '280':'충북 청주시','282':'충북 청주시',
+  '300':'충북 충주시','304':'충북 제천시','308':'충북 보은군',
+  '310':'충북 옥천군','312':'충북 영동군','314':'충북 증평군',
+  '315':'충북 진천군','317':'충북 괴산군','319':'충북 음성군','321':'충북 단양군',
+  '301':'대전 중구','302':'대전 서구','303':'대전 유성구','304':'대전 대덕구',
+  '305':'대전 동구',
+  '306':'세종특별자치시','307':'세종특별자치시','308':'세종특별자치시',
+  '330':'충남 천안시','331':'충남 천안시','336':'충남 공주시','339':'충남 보령시',
+  '343':'충남 아산시','344':'충남 아산시','345':'충남 서산시','348':'충남 논산시',
+  '350':'충남 계룡시','352':'충남 당진시','355':'충남 금산군','357':'충남 부여군',
+  '359':'충남 서천군','361':'충남 청양군','363':'충남 홍성군','365':'충남 예산군','367':'충남 태안군',
+  '360':'경북 포항시','361':'경북 포항시','363':'경북 경주시','367':'경북 김천시',
+  '369':'경북 안동시','372':'경북 구미시','373':'경북 구미시','376':'경북 영주시',
+  '378':'경북 영천시','380':'경북 상주시','382':'경북 문경시','384':'경북 경산시',
+  '386':'경북 군위군','388':'경북 의성군','390':'경북 청송군','392':'경북 영양군',
+  '394':'경북 영덕군','396':'경북 청도군','398':'경북 고령군','400':'경북 성주군',
+  '402':'경북 칠곡군','405':'경북 예천군','408':'경북 봉화군','410':'경북 울진군','412':'경북 울릉군',
+  '415':'대구 중구','416':'대구 동구','417':'대구 서구','418':'대구 남구','419':'대구 북구',
+  '420':'대구 수성구','421':'대구 달서구','422':'대구 달성군','427':'대구 군위군',
+  '440':'울산 중구','441':'울산 남구','442':'울산 동구','443':'울산 북구',
+  '444':'울산 울주군','447':'울산 울주군','449':'울산 울주군','450':'울산 북구',
+  '460':'부산 중구','461':'부산 서구','462':'부산 동구','463':'부산 영도구',
+  '464':'부산 부산진구','465':'부산 동래구','466':'부산 남구','467':'부산 북구',
+  '468':'부산 해운대구','469':'부산 사하구','470':'부산 금정구','471':'부산 강서구',
+  '472':'부산 연제구','473':'부산 수영구','474':'부산 사상구','475':'부산 기장군','489':'부산 기장군',
+  '480':'경남 창원시','481':'경남 창원시','482':'경남 창원시','483':'경남 창원시','514':'경남 창원시',
+  '487':'경남 진주시','488':'경남 진주시','490':'경남 통영시','492':'경남 사천시',
+  '494':'경남 김해시','495':'경남 김해시','497':'경남 밀양시','500':'경남 거제시',
+  '503':'경남 양산시','504':'경남 양산시','505':'경남 의령군','508':'경남 함안군',
+  '509':'경남 창녕군','511':'경남 고성군','513':'경남 남해군','516':'경남 하동군',
+  '519':'경남 산청군','522':'경남 함양군','525':'경남 거창군','528':'경남 합천군',
+  '540':'전북 전주시','541':'전북 전주시','545':'전북 군산시','547':'전북 익산시','548':'전북 익산시',
+  '550':'전북 정읍시','552':'전북 남원시','554':'전북 김제시','556':'전북 완주군',
+  '558':'전북 진안군','560':'전북 무주군','562':'전북 장수군','564':'전북 임실군',
+  '566':'전북 순창군','568':'전북 고창군','570':'전북 부안군',
+  '571':'전남 목포시','573':'전남 여수시','574':'전남 여수시','576':'전남 순천시','577':'전남 순천시',
+  '579':'전남 나주시','581':'전남 광양시','585':'전남 담양군','587':'전남 곡성군',
+  '589':'전남 구례군','591':'전남 고흥군','594':'전남 보성군','596':'전남 화순군',
+  '598':'전남 장흥군','600':'전남 강진군','602':'전남 해남군','604':'전남 영암군',
+  '606':'전남 무안군','608':'전남 함평군','610':'전남 영광군','612':'전남 장성군',
+  '614':'전남 완도군','616':'전남 진도군','618':'전남 신안군',
+  '619':'광주 동구','620':'광주 서구','621':'광주 남구','622':'광주 북구','623':'광주 광산구',
+  '630':'제주 제주시','631':'제주 제주시','632':'제주 서귀포시',
+};
+const DIV_COLORS={AAD:'#4f7ef8',ASD:'#10b981',EMD:'#8b5cf6',IATD:'#f59e0b',ISD:'#06b6d4',PSD:'#ec4899'};
+
+// ── 로딩 ─────────────────────────────────────────────────
+async function initPyodide(){
+  const bar=document.getElementById('lbar'),msg=document.getElementById('lmsg');
+  const steps=[[15,'Pyodide 로딩 중...'],[45,'micropip 초기화 중...'],[65,'pandas 설치 중...'],[85,'openpyxl 설치 중...'],[95,'준비 중...']];
+  let si=0;
+  const t=setInterval(()=>{if(si<steps.length){bar.style.width=steps[si][0]+'%';msg.textContent=steps[si][1];si++;}},900);
+  pyodide=await loadPyodide();
+  await pyodide.loadPackage(['micropip']);
+  await pyodide.runPythonAsync(`import micropip\nawait micropip.install(['pandas','openpyxl'])`);
+  clearInterval(t);bar.style.width='100%';msg.textContent='준비 완료!';
+  await new Promise(r=>setTimeout(r,400));
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+initPyodide();
+
+// ── 파일 업로드 ──────────────────────────────────────────
+document.getElementById('fi').addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
+  showProc(true);
+  pyodide.FS.writeFile('/data.xlsx',new Uint8Array(await file.arrayBuffer()));
+  const r=await pyodide.runPythonAsync(`
+import pandas as pd,json
+df=pd.read_excel('/data.xlsx',sheet_name='주문')
+df=df[df['처리상태']=='완료'].copy()
+years=sorted(df['주문일시(년)'].dropna().unique().tolist())
+json.dumps({'years':[int(y) for y in years]})
+`);
+  const meta=JSON.parse(r);
+  ['sel-y1','sel-y2'].forEach((id,i)=>{
+    const s=document.getElementById(id);
+    s.innerHTML=meta.years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    s.value=meta.years[i===0?0:meta.years.length-1];
+  });
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('result').style.display='block';
+  showProc(false);runAnalysis();
+});
+const uz=document.getElementById('upload-zone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');
+  const f=e.dataTransfer.files[0];if(f){const dt=new DataTransfer();dt.items.add(f);document.getElementById('fi').files=dt.files;document.getElementById('fi').dispatchEvent(new Event('change'));}
+});
+
+// ── 분석 실행 ────────────────────────────────────────────
+async function runAnalysis(){
+  const y1=parseInt(document.getElementById('sel-y1').value);
+  const y2=parseInt(document.getElementById('sel-y2').value);
+  showProc(true);
+  const r=await pyodide.runPythonAsync(`
+import pandas as pd,json,numpy as np
+from itertools import combinations
+from collections import Counter
+
+df=pd.read_excel('/data.xlsx',sheet_name='주문')
+df['주문자ID']=df['주문자ID'].astype(str).str.strip()
+df['가맹점코드']=df['가맹점코드'].apply(lambda x:str(int(float(x))) if str(x).replace('.','').isdigit() else str(x))
+df=df[df['처리상태']=='완료'].copy()
+AMT='상품금액+부가세';QTY='수량'
+
+z3c=${JSON.stringify(Z3C)}
+
+def clean_zip(x):
+    s=str(x).strip().replace(' ','')
+    d=''.join(c for c in s if c.isdigit())
+    if len(d)>=5:return d[:5].zfill(5)
+    elif len(d)>0:return d.zfill(5)
+    return None
+
+df['zip5']=df['주문자우편번호'].apply(clean_zip)
+df['zip3']=df['zip5'].str[:3].where(df['zip5'].notna())
+df['지역']=df['zip3'].map(z3c).fillna('기타')
+
+y1,y2=${y1},${y2}
+df1=df[df['주문일시(년)']==y1];df2=df[df['주문일시(년)']==y2]
+
+# 1. 지역별 매출
+def reg_sum(data):
+    return data.groupby('지역').agg(매출=(AMT,'sum'),수량=(QTY,'sum'),고객사수=('주문자ID','nunique'),주문건수=(AMT,'count')).reset_index()
+
+s1=reg_sum(df1).rename(columns={'매출':'y1매출','수량':'y1수량','고객사수':'y1고객사','주문건수':'y1건수'})
+s2=reg_sum(df2).rename(columns={'매출':'y2매출','수량':'y2수량','고객사수':'y2고객사','주문건수':'y2건수'})
+reg=pd.merge(s2,s1,on='지역',how='outer').fillna(0)
+reg['yoy']=np.where(reg['y1매출']>0,(reg['y2매출']/reg['y1매출']-1)*100,None)
+reg=reg.sort_values('y2매출',ascending=False)
+region_rows=reg.to_dict('records')
+for r in region_rows:
+    for k,v in r.items():
+        if isinstance(v,float) and np.isnan(v):r[k]=None
+
+# 2. Division 분포
+div_df=df2.groupby(['지역','Division'])[AMT].sum().reset_index()
+div_pivot=div_df.pivot(index='지역',columns='Division',values=AMT).fillna(0)
+for d in ['AAD','ASD','EMD','IATD','ISD','PSD']:
+    if d not in div_pivot.columns:div_pivot[d]=0
+div_pivot['주력Division']=div_pivot[['AAD','ASD','EMD','IATD','ISD','PSD']].idxmax(axis=1)
+div_pivot['총매출']=div_pivot[['AAD','ASD','EMD','IATD','ISD','PSD']].sum(axis=1)
+div_pivot=div_pivot.reset_index().sort_values('총매출',ascending=False)
+div_rows=[{k:v for k,v in r.items()} for r in div_pivot.to_dict('records')]
+
+# 3. 이탈 위험
+churn_rows=[]
+for uid in df['주문자ID'].unique():
+    da=df[df['주문자ID']==uid]
+    d1_=da[da['주문일시(년)']==y1];d2_=da[da['주문일시(년)']==y2]
+    s1_=float(d1_[AMT].sum());s2_=float(d2_[AMT].sum())
+    yy_=(s2_/s1_-1)*100 if s1_>0 else None
+    sido_=da['지역'].iloc[0] if len(da)>0 else '기타'
+    code_=da['가맹점코드'].iloc[0] if len(da)>0 else '-'
+    if s2_==0:status='danger'
+    elif yy_ is not None and yy_<-20:status='warn'
+    else:continue
+    churn_rows.append({'id':uid,'지역':sido_,'가맹점':code_,'y1':s1_,'y2':s2_,'yoy':yy_,'status':status})
+
+churn_by_reg={}
+for r in churn_rows:
+    s=r['지역']
+    if s not in churn_by_reg:churn_by_reg[s]={'danger':0,'warn':0}
+    churn_by_reg[s][r['status']]+=1
+churn_summary=[{'지역':k,'이탈위험':v['danger'],'이탈주의':v['warn'],'합계':v['danger']+v['warn']} for k,v in churn_by_reg.items()]
+churn_summary.sort(key=lambda x:-x['합계'])
+
+# 4. 신규 타겟
+target_rows=[]
+for r in region_rows:
+    reg_=r['지역']
+    if reg_ in ('기타',):continue
+    y2_amt=float(r.get('y2매출',0) or 0)
+    y1_amt=float(r.get('y1매출',0) or 0)
+    y2_cust=int(r.get('y2고객사',0) or 0)
+    yoy=r.get('yoy')
+    score=0;reason=[]
+    if yoy is not None and yoy>20:score+=3;reason.append(f'YoY +{yoy:.0f}% 고성장')
+    if y2_cust>=10:score+=2;reason.append(f'고객사 {y2_cust}개사 밀집')
+    if y1_amt==0 and y2_amt>0:score+=4;reason.append('Year2 신규 진입')
+    churn=next((c for c in churn_summary if c['지역']==reg_),None)
+    if churn and churn['이탈위험']>3:score-=2;reason.append(f'이탈위험 {churn["이탈위험"]}개사 주의')
+    if score>=2:target_rows.append({'지역':reg_,'Y2매출':y2_amt,'고객사수':y2_cust,'YoY':yoy,'점수':score,'추천이유':' · '.join(reason)})
+target_rows.sort(key=lambda x:-x['점수'])
+
+# 5. 지역별 크로스셀
+df2_c=df2.copy()
+df2_c['order_key']=df2_c['주문자ID']+'_'+df2_c['주문일시(년)'].astype(str)+'_'+df2_c['주문일시(월)'].astype(str)+'_'+df2_c['주문일시(일)'].astype(str)
+op=df2_c.groupby('order_key').agg({'제품명':list,'지역':'first'}).reset_index()
+pair_by_reg={}
+for _,row in op.iterrows():
+    reg_=row['지역'];prods=list(set(row['제품명']))
+    if len(prods)<2:continue
+    if reg_ not in pair_by_reg:pair_by_reg[reg_]=Counter()
+    for a,b in combinations(sorted(prods),2):pair_by_reg[reg_][(a,b)]+=1
+cross_rows=[]
+for reg_,counter in pair_by_reg.items():
+    top5=counter.most_common(5)
+    if top5:cross_rows.append({'지역':reg_,'top_pairs':[(a,b,c) for (a,b),c in top5]})
+cross_rows.sort(key=lambda x:x['top_pairs'][0][2],reverse=True)
+
+# 6. 가맹점별 지역 매출
+dealer_region=df2.groupby(['가맹점코드','지역']).agg(
+    매출=(AMT,'sum'),고객사수=('주문자ID','nunique'),주문건수=(AMT,'count')
+).reset_index().sort_values(['가맹점코드','매출'],ascending=[True,False])
+dealer_region_rows=dealer_region.to_dict('records')
+
+dealer_sum=df2.groupby('가맹점코드').agg(총매출=(AMT,'sum'),고객사수=('주문자ID','nunique')).reset_index()
+dealer_sum['활동지역수']=df2.groupby('가맹점코드')['지역'].nunique().values
+dealer_sum['주력지역']=df2.groupby('가맹점코드')['지역'].agg(lambda x:x.value_counts().idxmax()).values
+dealer_sum=dealer_sum.sort_values('총매출',ascending=False)
+dealer_rows=dealer_sum.to_dict('records')
+
+# KPI
+t1=float(df1[AMT].sum());t2=float(df2[AMT].sum())
+yoy_t=(t2/t1-1)*100 if t1>0 else 0
+
+json.dumps({
+    'y1':y1,'y2':y2,
+    'kpi':{'t1':t1,'t2':t2,'yoy':yoy_t,'active_regs':int(df2['지역'].nunique()-1),'churn_cnt':len(churn_rows)},
+    'region_rows':region_rows,
+    'div_rows':div_rows,
+    'churn_summary':churn_summary,
+    'churn_rows':churn_rows,
+    'target_rows':target_rows,
+    'cross_rows':cross_rows,
+    'dealer_rows':dealer_rows,
+    'dealer_region_rows':dealer_region_rows,
+},ensure_ascii=False,default=str)
+`);
+  D=JSON.parse(r);
+  renderKPI();renderRegionCharts();renderRegionTable();
+  renderChurnChart();renderChurnSummary();renderChurnDetail();
+  renderTargetTab();renderCrossTab();
+  renderDivChart();renderDivTable();
+  renderDealerTab();
+  showProc(false);
+}
+
+// ── KPI ─────────────────────────────────────────────────
+function renderKPI(){
+  const{t1,t2,yoy,active_regs,churn_cnt}=D.kpi;
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi"><div class="kpi-label">Year1 총매출</div><div class="kpi-value">₩${(t1/1e8).toFixed(1)}억</div></div>
+    <div class="kpi"><div class="kpi-label">Year2 총매출</div><div class="kpi-value">₩${(t2/1e8).toFixed(1)}억</div></div>
+    <div class="kpi"><div class="kpi-label">YoY 성장률</div><div class="kpi-value ${yoy>=0?'pos':'neg'}">${yoy>=0?'+':''}${yoy.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-label">이탈 위험·주의 고객사</div><div class="kpi-value" style="color:var(--amber)">${churn_cnt}개사</div></div>`;
+}
+
+// ── 탭0: 지역별 매출 ─────────────────────────────────────
+function renderRegionCharts(){
+  const rows=D.region_rows.filter(r=>r.지역!=='기타').slice(0,15);
+  document.getElementById('chart0-title').textContent=`Year2 (${D.y2}) 지역별 매출 (상위 15)`;
+  if(charts.region)charts.region.destroy();
+  if(charts.yoy)charts.yoy.destroy();
+  const labels=rows.map(r=>r.지역);
+  charts.region=new Chart(document.getElementById('chart-region').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[{label:'매출',data:rows.map(r=>r.y2매출||0),backgroundColor:'#4f7ef8cc',borderColor:'#4f7ef8',borderWidth:1,borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`₩${(ctx.raw/1e6).toFixed(0)}백만`}}},
+      scales:{x:{ticks:{color:'#8b91b0',font:{size:10},callback:v=>`₩${(v/1e6).toFixed(0)}M`},grid:{color:'#2d3150'}},y:{ticks:{color:'#8b91b0',font:{size:10}},grid:{color:'#2d3150'}}}}
+  });
+  const yRows=rows.filter(r=>r.yoy!=null);
+  charts.yoy=new Chart(document.getElementById('chart-yoy').getContext('2d'),{
+    type:'bar',data:{labels:yRows.map(r=>r.지역),datasets:[{label:'YoY',data:yRows.map(r=>r.yoy),backgroundColor:yRows.map(r=>(r.yoy||0)>=0?'#10b98199':'#ef444499'),borderColor:yRows.map(r=>(r.yoy||0)>=0?'#10b981':'#ef4444'),borderWidth:1,borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.toFixed(1)}%`}}},
+      scales:{x:{ticks:{color:'#8b91b0',font:{size:10},callback:v=>`${v}%`},grid:{color:'#2d3150'}},y:{ticks:{color:'#8b91b0',font:{size:10}},grid:{color:'#2d3150'}}}}
+  });
+}
+function renderRegionTable(){
+  const q=document.getElementById('search-region').value.toLowerCase();
+  let rows=D.region_rows.filter(r=>r.지역!=='기타');
+  if(q)rows=rows.filter(r=>r.지역.toLowerCase().includes(q));
+  let h=`<thead><tr><th>지역</th><th>Year1 매출</th><th>Year2 매출</th><th>YoY</th><th>Y2 고객사수</th><th>Y2 주문건수</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const y=r.yoy!=null?`<span class="${r.yoy>=0?'pos':'neg'}">${r.yoy>=0?'+':''}${r.yoy.toFixed(1)}%</span>`:'<span class="neu">N/A</span>';
+    h+=`<tr><td style="font-weight:600">${r.지역}</td><td>₩${Math.round(r.y1매출||0).toLocaleString()}</td><td style="font-weight:600">₩${Math.round(r.y2매출||0).toLocaleString()}</td><td>${y}</td><td>${Math.round(r.y2고객사||0)}</td><td>${Math.round(r.y2건수||0)}</td></tr>`;
+  }
+  document.getElementById('tbl-region').innerHTML=h+'</tbody>';
+}
+
+// ── 탭1: Division 분포 ───────────────────────────────────
+function renderDivChart(){
+  const rows=D.div_rows.filter(r=>r.지역!=='기타').slice(0,15);
+  if(charts.div)charts.div.destroy();
+  const divs=['AAD','ASD','EMD','IATD','ISD','PSD'];
+  charts.div=new Chart(document.getElementById('chart-div').getContext('2d'),{
+    type:'bar',data:{labels:rows.map(r=>r.지역),datasets:divs.map(d=>({label:d,data:rows.map(r=>r[d]||0),backgroundColor:DIV_COLORS[d]+'cc',borderColor:DIV_COLORS[d],borderWidth:1,borderRadius:2}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b91b0',font:{size:11}}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ₩${(ctx.raw/1e6).toFixed(0)}M`}}},
+      scales:{x:{stacked:true,ticks:{color:'#8b91b0',font:{size:10}},grid:{color:'#2d3150'}},y:{stacked:true,ticks:{color:'#8b91b0',font:{size:10},callback:v=>`₩${(v/1e6).toFixed(0)}M`},grid:{color:'#2d3150'}}}}
+  });
+}
+function renderDivTable(){
+  const q=document.getElementById('search-div').value.toLowerCase();
+  const divs=['AAD','ASD','EMD','IATD','ISD','PSD'];
+  let rows=D.div_rows.filter(r=>r.지역!=='기타');
+  if(q)rows=rows.filter(r=>r.지역.toLowerCase().includes(q));
+  let h=`<thead><tr><th>지역</th><th>주력 Division</th>${divs.map(d=>`<th>${d}</th>`).join('')}<th>총매출</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const m=r['주력Division']||'-';
+    h+=`<tr><td style="font-weight:600">${r.지역}</td><td><span class="div-tag div-${m}">${m}</span></td>${divs.map(d=>`<td>₩${((r[d]||0)/1e6).toFixed(0)}M</td>`).join('')}<td style="font-weight:600">₩${((r['총매출']||0)/1e6).toFixed(0)}M</td></tr>`;
+  }
+  document.getElementById('tbl-div').innerHTML=h+'</tbody>';
+}
+
+// ── 탭2: 이탈 위험 지역 ──────────────────────────────────
+function renderChurnChart(){
+  const rows=D.churn_summary.slice(0,15);
+  if(charts.churn)charts.churn.destroy();
+  charts.churn=new Chart(document.getElementById('chart-churn').getContext('2d'),{
+    type:'bar',data:{labels:rows.map(r=>r.지역),datasets:[
+      {label:'이탈 위험',data:rows.map(r=>r.이탈위험),backgroundColor:'#ef444499',borderColor:'#ef4444',borderWidth:1,borderRadius:3},
+      {label:'이탈 주의',data:rows.map(r=>r.이탈주의),backgroundColor:'#f59e0b99',borderColor:'#f59e0b',borderWidth:1,borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b91b0',font:{size:11}}}},
+      scales:{x:{stacked:true,ticks:{color:'#8b91b0',font:{size:10}},grid:{color:'#2d3150'}},y:{stacked:true,ticks:{color:'#8b91b0',font:{size:10}},grid:{color:'#2d3150'}}}}
+  });
+}
+function renderChurnSummary(){
+  let h=`<thead><tr><th>지역</th><th>이탈 위험</th><th>이탈 주의</th><th>합계</th><th>우선순위</th></tr></thead><tbody>`;
+  for(const r of D.churn_summary){
+    const p=r.합계>=10?'🔴 즉시':r.합계>=5?'⚠️ 모니터링':'📋 관찰';
+    h+=`<tr><td style="font-weight:600">${r.지역}</td><td style="color:#ef4444;font-weight:600">${r.이탈위험}</td><td style="color:#f59e0b;font-weight:600">${r.이탈주의}</td><td style="font-weight:600">${r.합계}</td><td style="font-size:12px">${p}</td></tr>`;
+  }
+  document.getElementById('tbl-churn-summary').innerHTML=h+'</tbody>';
+}
+function setChurnFilter(f){
+  churnFilter=f;
+  ['all','danger','warn'].forEach(k=>{
+    const el=document.getElementById(`churn-filter-${k}`);
+    el.style.borderColor=k===f?'var(--accent)':'var(--border)';
+    el.style.color=k===f?'var(--accent)':'var(--text2)';
+  });
+  renderChurnDetail();
+}
+function renderChurnDetail(){
+  const q=document.getElementById('search-churn').value.toLowerCase();
+  let rows=D.churn_rows;
+  if(churnFilter!=='all')rows=rows.filter(r=>r.status===churnFilter);
+  if(q)rows=rows.filter(r=>r.id.toLowerCase().includes(q)||r.지역.toLowerCase().includes(q));
+  if(rows.length===0){document.getElementById('tbl-churn-detail').innerHTML=`<tbody><tr><td colspan="7" class="empty">조건에 맞는 고객사가 없습니다</td></tr></tbody>`;return;}
+  let h=`<thead><tr><th>상태</th><th>주문자ID</th><th>가맹점코드</th><th>지역</th><th>Year1 매출</th><th>Year2 매출</th><th>증감율</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const badge=r.status==='danger'?'<span class="badge badge-danger">🔴 이탈 위험</span>':'<span class="badge badge-warn">⚠️ 이탈 주의</span>';
+    const yoyStr=r.yoy!=null?`<span class="neg">${r.yoy.toFixed(1)}%</span>`:'<span class="neg">-100%</span>';
+    h+=`<tr><td>${badge}</td><td style="font-weight:600">${r.id}</td><td style="color:var(--green)">${r.가맹점}</td><td>${r.지역}</td><td>₩${Math.round(r.y1).toLocaleString()}</td><td>₩${Math.round(r.y2).toLocaleString()}</td><td>${yoyStr}</td></tr>`;
+  }
+  document.getElementById('tbl-churn-detail').innerHTML=h+'</tbody>';
+}
+
+// ── 탭3: 신규 타겟 ───────────────────────────────────────
+function renderTargetTab(){
+  const rows=D.target_rows;
+  if(!rows.length){document.getElementById('tbl-target').innerHTML='<tbody><tr><td colspan="6" class="empty">추천 기준에 해당하는 지역 없음</td></tr></tbody>';return;}
+  let h=`<thead><tr><th>지역</th><th>Year2 매출</th><th>고객사수</th><th>YoY</th><th>추천 점수</th><th>추천 이유</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const y=r.YoY!=null?`<span class="${r.YoY>=0?'pos':'neg'}">${r.YoY>=0?'+':''}${r.YoY.toFixed(1)}%</span>`:'<span class="neu">신규</span>';
+    h+=`<tr><td style="font-weight:600">${r.지역}</td><td>₩${Math.round(r.Y2매출).toLocaleString()}</td><td>${r.고객사수}</td><td>${y}</td><td>${'⭐'.repeat(Math.min(r.점수,5))}</td><td style="font-size:12px;color:var(--text2)">${r.추천이유}</td></tr>`;
+  }
+  document.getElementById('tbl-target').innerHTML=h+'</tbody>';
+}
+
+// ── 탭4: 지역별 크로스셀 ────────────────────────────────
+function renderCrossTab(){
+  const q=document.getElementById('search-cross').value.toLowerCase();
+  let rows=D.cross_rows;
+  if(q)rows=rows.filter(r=>r.지역.toLowerCase().includes(q));
+  let h=`<thead><tr><th>지역</th><th>동반 구매 Top 조합</th><th>최고 빈도</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const pairs=r.top_pairs.map(([a,b,cnt])=>`<div style="margin-bottom:4px;font-size:12px"><span style="color:var(--accent)">${shorten(a,22)}</span> <span style="color:var(--text3)">+</span> <span style="color:var(--green)">${shorten(b,22)}</span> <span class="badge badge-good" style="margin-left:4px">${cnt}회</span></div>`).join('');
+    h+=`<tr><td style="font-weight:600;vertical-align:top;padding-top:12px">${r.지역}</td><td style="vertical-align:top;padding-top:8px">${pairs}</td><td style="vertical-align:top;padding-top:12px;color:var(--text2)">${r.top_pairs[0][2]}회</td></tr>`;
+  }
+  document.getElementById('tbl-cross').innerHTML=h+'</tbody>';
+}
+
+// ── 탭5: 가맹점별 지역 ──────────────────────────────────
+function renderDealerTab(){
+  const q=document.getElementById('search-dealer').value.toLowerCase();
+  let rows=D.dealer_rows;
+  if(q)rows=rows.filter(r=>String(r.가맹점코드).includes(q));
+
+  let h=`<thead><tr><th>가맹점코드</th><th>총매출</th><th>고객사수</th><th>활동지역수</th><th>주력지역</th><th>지역별 상세</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const regionRows=D.dealer_region_rows.filter(dr=>dr.가맹점코드===r.가맹점코드);
+    const did=`dd-${r.가맹점코드}`;
+    const detailHtml=regionRows.map(dr=>`
+      <tr id="${did}-row" style="background:var(--surface2);display:none">
+        <td style="padding-left:32px;color:var(--text2);font-size:12px">${dr.지역}</td>
+        <td style="font-size:12px">₩${Math.round(dr.매출||0).toLocaleString()}</td>
+        <td style="font-size:12px;color:var(--text2)">고객사 ${dr.고객사수||0}개</td>
+        <td style="font-size:12px;color:var(--text2)">주문 ${dr.주문건수||0}건</td>
+        <td colspan="2"></td>
+      </tr>`).join('');
+    h+=`<tr>
+      <td style="font-weight:600;color:var(--green)">${r.가맹점코드}</td>
+      <td style="font-weight:600">₩${Math.round(r.총매출||0).toLocaleString()}</td>
+      <td>${r.고객사수||0}</td>
+      <td style="color:var(--accent);font-weight:600">${r.활동지역수||0}개</td>
+      <td style="font-weight:600">${r.주력지역||'-'}</td>
+      <td><button id="${did}-btn" onclick="toggleDealer('${did}')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-family:'Pretendard',sans-serif;">지역 상세 ▼</button></td>
+    </tr>${detailHtml}`;
+  }
+  document.getElementById('tbl-dealer').innerHTML=h+'</tbody>';
+}
+
+function toggleDealer(did){
+  const rows=document.querySelectorAll(`#${did}-row`);
+  const btn=document.getElementById(`${did}-btn`);
+  const isHidden=rows[0]&&rows[0].style.display==='none';
+  rows.forEach(r=>r.style.display=isHidden?'':'none');
+  if(btn){btn.textContent=isHidden?'지역 상세 ▲':'지역 상세 ▼';btn.style.color=isHidden?'var(--accent)':'var(--text2)';btn.style.borderColor=isHidden?'var(--accent)':'var(--border)';}
+}
+
+// ── 엑셀 다운로드 ────────────────────────────────────────
+function downloadExcel(){
+  showProc(true);
+  const wb=XLSX.utils.book_new();
+  const y1=D.y1, y2=D.y2;
+
+  // 1. 지역별 매출
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    D.region_rows.filter(r=>r.지역!=='기타').map(r=>({
+      지역:r.지역, [`Year1(${y1})매출`]:Math.round(r.y1매출||0),
+      [`Year2(${y2})매출`]:Math.round(r.y2매출||0),
+      'YoY(%)':r.yoy!=null?parseFloat(r.yoy.toFixed(1)):null,
+      [`Year2 고객사수`]:r.y2고객사||0, [`Year2 주문건수`]:r.y2건수||0
+    }))
+  ), '지역별매출');
+
+  // 2. Division 분포
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    D.div_rows.filter(r=>r.지역!=='기타').map(r=>({
+      지역:r.지역, 주력Division:r['주력Division'],
+      AAD:Math.round(r.AAD||0), ASD:Math.round(r.ASD||0), EMD:Math.round(r.EMD||0),
+      IATD:Math.round(r.IATD||0), ISD:Math.round(r.ISD||0), PSD:Math.round(r.PSD||0),
+      총매출:Math.round(r['총매출']||0)
+    }))
+  ), 'Division분포');
+
+  // 3. 이탈위험 고객사 상세
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    D.churn_rows.map(r=>({
+      상태:r.status==='danger'?'이탈 위험':'이탈 주의',
+      주문자ID:r.id, 가맹점코드:r.가맹점, 지역:r.지역,
+      [`Year1(${y1})매출`]:Math.round(r.y1), [`Year2(${y2})매출`]:Math.round(r.y2),
+      '증감율(%)':r.yoy!=null?parseFloat(r.yoy.toFixed(1)):-100
+    }))
+  ), '이탈위험고객사');
+
+  // 4. 신규 타겟 추천
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    D.target_rows.map(r=>({
+      지역:r.지역, [`Year2(${y2})매출`]:Math.round(r.Y2매출),
+      고객사수:r.고객사수, 'YoY(%)':r.YoY!=null?parseFloat(r.YoY.toFixed(1)):null,
+      추천점수:r.점수, 추천이유:r.추천이유
+    }))
+  ), '신규타겟추천');
+
+  // 5. 지역별 크로스셀
+  const crossSheet=[];
+  for(const r of D.cross_rows){
+    for(const [a,b,cnt] of r.top_pairs){
+      crossSheet.push({지역:r.지역, 제품A:a, 제품B:b, 동반구매횟수:cnt});
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(crossSheet), '지역별크로스셀');
+
+  // 6. 가맹점별 지역 매출
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    D.dealer_region_rows.map(r=>({
+      가맹점코드:r.가맹점코드, 지역:r.지역,
+      매출:Math.round(r.매출||0), 고객사수:r.고객사수||0, 주문건수:r.주문건수||0
+    }))
+  ), '가맹점별지역매출');
+
+  XLSX.writeFile(wb, `3M_지역분석_v4_${y2}년.xlsx`);
+  showProc(false);
+}
+
+// ── 유틸 ────────────────────────────────────────────────
+function switchTab(idx){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+}
+function shorten(s,n=22){return s&&s.length>n?s.slice(0,n)+'...':s;}
+function showProc(v){document.getElementById('processing').classList.toggle('show',v);}
+</script>
+</body>
+</html>
