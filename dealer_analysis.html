@@ -279,7 +279,9 @@ document.getElementById('fi').addEventListener('change', async e=>{
   pyodide.FS.writeFile('/data.xlsx', new Uint8Array(await file.arrayBuffer()));
   const r=await pyodide.runPythonAsync(`
 import pandas as pd, json
-df=pd.read_excel('/data.xlsx',sheet_name='주문')
+xl=pd.ExcelFile('/data.xlsx')
+sheet='주문' if '주문' in xl.sheet_names else xl.sheet_names[0]
+df=pd.read_excel('/data.xlsx',sheet_name=sheet)
 df=df[df['처리상태']=='완료'].copy()
 years=sorted(df['주문일시(년)'].dropna().unique().tolist())
 code=str(df['가맹점코드'].iloc[0]) if len(df)>0 else '-'
@@ -312,7 +314,9 @@ async function runAnalysis(){
 import pandas as pd, json, numpy as np
 from datetime import datetime
 
-df=pd.read_excel('/data.xlsx',sheet_name='주문')
+xl=pd.ExcelFile('/data.xlsx')
+sheet='주문' if '주문' in xl.sheet_names else xl.sheet_names[0]
+df=pd.read_excel('/data.xlsx',sheet_name=sheet)
 df=df[df['처리상태']=='완료'].copy()
 AMT='상품금액+부가세'; QTY='수량'
 y1,y2=${y1},${y2}
