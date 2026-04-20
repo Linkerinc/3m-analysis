@@ -387,10 +387,11 @@ def get_status(row):
     if ratio>1.5: return 'warn'
     return 'ok'
 cust_cycle['status']=cust_cycle.apply(get_status,axis=1)
-cust_cycle['초과비율']=np.where(
-    (cust_cycle['평균주기'].notna())&(cust_cycle['평균주기']>0),
-    (cust_cycle['경과일']/cust_cycle['평균주기'].replace(0,np.nan)).round(2),None
-)
+def get_ratio(row):
+    if pd.isna(row['평균주기']) or row['평균주기'] is None or row['평균주기']==0:
+        return None
+    return round(row['경과일']/row['평균주기'], 2)
+cust_cycle['초과비율']=cust_cycle.apply(get_ratio, axis=1)
 cust_cycle=cust_cycle.sort_values(['status','경과일'],ascending=[True,False])
 cycle_rows=[]
 for _,row in cust_cycle.iterrows():
