@@ -377,6 +377,7 @@ cust_cycle['경과일']=(last_date-cust_cycle['마지막구매']).dt.days
 def get_status(row):
     if row['주문수']==1: return 'new'
     if row['평균주기'] is None or pd.isna(row['평균주기']): return 'new'
+    if row['평균주기']==0: return 'new'
     ratio=row['경과일']/row['평균주기']
     if ratio>2: return 'danger'
     if ratio>1.5: return 'warn'
