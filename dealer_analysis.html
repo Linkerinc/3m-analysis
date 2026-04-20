@@ -371,7 +371,11 @@ cust_cycle=df.groupby('주문자ID').agg(
     업종=('주문자 기업구분','first')
 ).reset_index()
 cust_cycle['활동기간']=(cust_cycle['마지막구매']-cust_cycle['첫구매']).dt.days
-cust_cycle['평균주기']=np.where(cust_cycle['주문수']>1,cust_cycle['활동기간']/(cust_cycle['주문수']-1),None)
+cust_cycle['평균주기']=np.where(
+    (cust_cycle['주문수']>1)&(cust_cycle['활동기간']>0),
+    cust_cycle['활동기간']/(cust_cycle['주문수']-1),
+    None
+)
 cust_cycle['경과일']=(last_date-cust_cycle['마지막구매']).dt.days
 
 def get_status(row):
@@ -385,7 +389,7 @@ def get_status(row):
 cust_cycle['status']=cust_cycle.apply(get_status,axis=1)
 cust_cycle['초과비율']=np.where(
     (cust_cycle['평균주기'].notna())&(cust_cycle['평균주기']>0),
-    (cust_cycle['경과일']/cust_cycle['평균주기']).round(2),None
+    (cust_cycle['경과일']/cust_cycle['평균주기'].replace(0,np.nan)).round(2),None
 )
 cust_cycle=cust_cycle.sort_values(['status','경과일'],ascending=[True,False])
 cycle_rows=[]
