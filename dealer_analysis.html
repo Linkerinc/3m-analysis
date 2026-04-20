@@ -613,35 +613,162 @@ function renderCycleTable(){
 }
 
 // ── 엑셀 다운로드 ────────────────────────────────────────
-function downloadExcel(){
+async function downloadExcel(){
   proc(true);
-  const wb=XLSX.utils.book_new();
+
+  // ExcelJS 동적 로드
+  if(!window.ExcelJS){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js';
+      s.onload=res; s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const wb=new ExcelJS.Workbook();
+  wb.creator='Selport'; wb.created=new Date();
+
+  // 공통 스타일
+  const HDR_BG='1E2D45', HDR_FG='93C5FD';
+  const DANGER_BG='3B1010', DANGER_FG='EF4444';
+  const WARN_BG='3B2E10', WARN_FG='F59E0B';
+  const OK_BG='0F2E1A', OK_FG='22C55E';
+  const NEW_BG='0F1E3B', NEW_FG='3B82F6';
+  const POS_FG='22C55E', NEG_FG='EF4444';
+
+  function hdrStyle(col){
+    return {font:{bold:true,color:{argb:'FF'+HDR_FG},size:11},
+      fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF'+HDR_BG}},
+      alignment:{horizontal:'center',vertical:'middle'},
+      border:{bottom:{style:'medium',color:{argb:'FF3B82F6'}}}};
+  }
+  function moneyFmt(v){ return v!=null?`₩${Math.round(v).toLocaleString()}`:'-'; }
+  function applyHdr(ws, headers, widths){
+    ws.addRow(headers).eachCell(c=>Object.assign(c,hdrStyle()));
+    ws.getRow(1).height=22;
+    headers.forEach((_,i)=>{ ws.getColumn(i+1).width=widths[i]||15; });
+  }
+  function setCell(row, col, value, opts={}){
+    const c=row.getCell(col);
+    c.value=value;
+    if(opts.bold) c.font={...(c.font||{}),bold:true};
+    if(opts.color) c.font={...(c.font||{}),color:{argb:'FF'+opts.color}};
+    if(opts.bg) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+opts.bg}};
+    if(opts.align) c.alignment={horizontal:opts.align};
+    if(opts.numFmt) c.numFmt=opts.numFmt;
+  }
+
   const m=D.monthly;
-  // 월별
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    m.months.map((mo,i)=>({월:`${mo}월`,[`${D.y1}년 매출`]:Math.round(m.y1[i]),[`${D.y2}년 매출`]:Math.round(m.y2[i]),'YoY(%)':m.y1[i]>0?parseFloat(((m.y2[i]/m.y1[i]-1)*100).toFixed(1)):null}))
-  ),'월별매출');
-  // Division별
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    Object.entries(D.div).map(([d,v])=>({Division:d,[`${D.y1}년`]:Math.round(v.y1),[`${D.y2}년`]:Math.round(v.y2),'YoY(%)':v.y1>0?parseFloat(((v.y2/v.y1-1)*100).toFixed(1)):null}))
-  ),'Division별');
-  // 제품랭킹
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    D.prod_rows.map((r,i)=>({순위:i+1,제품명:r.제품명,Division:r.Division,[`${D.y2}년 매출`]:Math.round(r.매출),수량:Math.round(r.수량),주문수:r.주문수}))
-  ),'제품랭킹');
-  // 고객사별
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    D.cust_rows.map(r=>({고객사ID:r.주문자ID,업종:r.업종||'-',[`${D.y1}년 매출`]:Math.round(r.y1매출||0),[`${D.y2}년 매출`]:Math.round(r.y2매출||0),'YoY(%)':r.yoy!=null?parseFloat(r.yoy.toFixed(1)):null,주문수:r.y2주문수||0}))
-  ),'고객사별');
-  // 업종별
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    D.ind_rows.map(r=>({업종:r['주문자 기업구분']||'미분류',매출:Math.round(r.매출),고객사수:r.고객수}))
-  ),'업종별');
-  // 구매주기
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(
-    D.cycle_rows.map(r=>({상태:r.status==='danger'?'이탈위험':r.status==='warn'?'이탈주의':r.status==='new'?'신규':'정상',고객사ID:r.id,업종:r.ind,총주문수:r.orders,평균구매주기일:r.avg_cycle?Math.round(r.avg_cycle):null,마지막구매일:r.last_date,경과일:r.last_days,초과비율:r.ratio,총매출:Math.round(r.amt)}))
-  ),'구매주기분석');
-  XLSX.writeFile(wb,`대리점_${D.dealer}_매출분석_${D.y2}년.xlsx`);
+
+  // ① 월별 매출
+  const ws1=wb.addWorksheet('📈 월별매출');
+  applyHdr(ws1,['월',`${D.y1}년 매출`,`${D.y2}년 매출`,'YoY(%)','증감액'],[10,18,18,12,18]);
+  m.months.forEach((mo,i)=>{
+    const v1=Math.round(m.y1[i]), v2=Math.round(m.y2[i]);
+    const yoy=v1>0?parseFloat(((v2/v1-1)*100).toFixed(1)):null;
+    const diff=v2-v1;
+    const row=ws1.addRow([`${mo}월`, v1, v2, yoy, diff]);
+    row.height=18;
+    setCell(row,1,`${mo}월`,{bold:true});
+    setCell(row,2,v1,{numFmt:'#,##0',align:'right'});
+    setCell(row,3,v2,{numFmt:'#,##0',align:'right',bold:true});
+    if(yoy!=null){
+      setCell(row,4,yoy,{numFmt:'0.0"%"',align:'center',color:yoy>=0?POS_FG:NEG_FG,bold:true});
+      setCell(row,5,diff,{numFmt:'#,##0',align:'right',color:diff>=0?POS_FG:NEG_FG});
+    }
+    if(i%2===0) row.eachCell(c=>{if(!c.fill||c.fill.type==='pattern'&&!c.fill.fgColor?.argb?.includes(HDR_BG))c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0E1420'}};});
+  });
+  // 합계행
+  const sumRow=ws1.addRow(['합계',Math.round(m.y1.reduce((a,b)=>a+b,0)),Math.round(m.y2.reduce((a,b)=>a+b,0)),'','']);
+  sumRow.eachCell(c=>{c.font={bold:true,color:{argb:'FF'+HDR_FG}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+HDR_BG}};});
+  setCell(sumRow,2,Math.round(m.y1.reduce((a,b)=>a+b,0)),{numFmt:'#,##0',bold:true});
+  setCell(sumRow,3,Math.round(m.y2.reduce((a,b)=>a+b,0)),{numFmt:'#,##0',bold:true});
+
+  // ② Division별
+  const ws2=wb.addWorksheet('🎯 Division별');
+  applyHdr(ws2,['Division',`${D.y1}년 매출`,`${D.y2}년 매출`,'YoY(%)','비중(Y2)'],[14,18,18,12,12]);
+  const total2=Object.values(D.div).reduce((s,v)=>s+v.y2,0);
+  const DCOL2={AAD:'3B82F8',ASD:'22C55E',EMD:'A855F7',IATD:'F59E0B',ISD:'06B6D4',PSD:'EC4899'};
+  Object.entries(D.div).forEach(([d,v])=>{
+    const yoy=v.y1>0?parseFloat(((v.y2/v.y1-1)*100).toFixed(1)):null;
+    const pct=total2>0?parseFloat((v.y2/total2*100).toFixed(1)):0;
+    const row=ws2.addRow([d,Math.round(v.y1),Math.round(v.y2),yoy,pct]);
+    row.height=18;
+    setCell(row,1,d,{bold:true,color:DCOL2[d]||'94A3B8'});
+    setCell(row,2,Math.round(v.y1),{numFmt:'#,##0',align:'right'});
+    setCell(row,3,Math.round(v.y2),{numFmt:'#,##0',align:'right',bold:true});
+    if(yoy!=null) setCell(row,4,yoy,{numFmt:'0.0"%"',align:'center',color:yoy>=0?POS_FG:NEG_FG,bold:true});
+    setCell(row,5,pct,{numFmt:'0.0"%"',align:'center'});
+  });
+
+  // ③ 제품 랭킹
+  const ws3=wb.addWorksheet('🏆 제품랭킹');
+  applyHdr(ws3,['순위','제품명','Division',`${D.y2}년 매출`,'수량','주문수'],[8,45,12,18,10,10]);
+  D.prod_rows.forEach((r,i)=>{
+    const row=ws3.addRow([i+1,r.제품명,r.Division,Math.round(r.매출),Math.round(r.수량),r.주문수]);
+    row.height=18;
+    const rankColor=i===0?'F59E0B':i===1?'94A3B8':i===2?'CD7C3A':null;
+    if(rankColor) setCell(row,1,i+1,{bold:true,color:rankColor});
+    setCell(row,3,r.Division,{bold:true,color:DCOL2[r.Division]||'94A3B8'});
+    setCell(row,4,Math.round(r.매출),{numFmt:'#,##0',align:'right',bold:true});
+    setCell(row,5,Math.round(r.수량),{numFmt:'#,##0',align:'right'});
+    if(i%2===0) row.eachCell(c=>{if(!c.fill?.fgColor?.argb?.includes(HDR_BG))c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0E1420'}};});
+  });
+
+  // ④ 고객사별
+  const ws4=wb.addWorksheet('👥 고객사별');
+  applyHdr(ws4,['고객사ID','업종',`${D.y1}년 매출`,`${D.y2}년 매출`,'YoY(%)','주문수'],[20,16,18,18,12,10]);
+  D.cust_rows.forEach((r,i)=>{
+    const yoy=r.yoy!=null?parseFloat(r.yoy.toFixed(1)):null;
+    const row=ws4.addRow([r.주문자ID,r.업종||'-',Math.round(r.y1매출||0),Math.round(r.y2매출||0),yoy,r.y2주문수||0]);
+    row.height=18;
+    setCell(row,1,r.주문자ID,{bold:true});
+    setCell(row,3,Math.round(r.y1매출||0),{numFmt:'#,##0',align:'right'});
+    setCell(row,4,Math.round(r.y2매출||0),{numFmt:'#,##0',align:'right',bold:true});
+    if(yoy!=null) setCell(row,5,yoy,{numFmt:'0.0"%"',align:'center',color:yoy>=0?POS_FG:NEG_FG,bold:true});
+    if(i%2===0) row.eachCell(c=>{if(!c.fill?.fgColor?.argb?.includes(HDR_BG))c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0E1420'}};});
+  });
+
+  // ⑤ 업종별
+  const ws5=wb.addWorksheet('🏭 업종별');
+  const tot5=D.ind_rows.reduce((s,r)=>s+r.매출,0);
+  applyHdr(ws5,['업종','매출','고객사수','비중(%)'],[18,18,12,12]);
+  D.ind_rows.forEach(r=>{
+    const pct=tot5>0?parseFloat((r.매출/tot5*100).toFixed(1)):0;
+    const row=ws5.addRow([r['주문자 기업구분']||'미분류',Math.round(r.매출),r.고객수,pct]);
+    row.height=18;
+    setCell(row,1,r['주문자 기업구분']||'미분류',{bold:true});
+    setCell(row,2,Math.round(r.매출),{numFmt:'#,##0',align:'right',bold:true});
+    setCell(row,4,pct,{numFmt:'0.0"%"',align:'center'});
+  });
+
+  // ⑥ 구매주기
+  const ws6=wb.addWorksheet('🔄 구매주기분석');
+  applyHdr(ws6,['상태','고객사ID','업종','총주문수','평균구매주기(일)','마지막구매일','경과일','초과비율','총매출'],[14,20,16,12,18,16,10,12,18]);
+  const statusMap={danger:'🔴 이탈 위험',warn:'⚠️ 이탈 주의',ok:'✅ 정상',new:'🆕 신규'};
+  const statusBg={danger:DANGER_BG,warn:WARN_BG,ok:OK_BG,new:NEW_BG};
+  const statusFg={danger:DANGER_FG,warn:WARN_FG,ok:OK_FG,new:NEW_FG};
+  D.cycle_rows.forEach(r=>{
+    const row=ws6.addRow([statusMap[r.status]||r.status,r.id,r.ind,r.orders,r.avg_cycle?Math.round(r.avg_cycle):null,r.last_date,r.last_days,r.ratio,Math.round(r.amt)]);
+    row.height=20;
+    const bg=statusBg[r.status], fg=statusFg[r.status];
+    setCell(row,1,statusMap[r.status],{bold:true,color:fg,bg:bg});
+    setCell(row,2,r.id,{bold:true});
+    setCell(row,4,r.orders,{align:'center'});
+    if(r.avg_cycle) setCell(row,5,Math.round(r.avg_cycle),{align:'center'});
+    setCell(row,7,r.last_days,{bold:true,align:'center',color:r.status==='danger'?DANGER_FG:r.status==='warn'?WARN_FG:null});
+    if(r.ratio) setCell(row,8,r.ratio,{numFmt:'0.00"x"',align:'center',color:r.ratio>2?DANGER_FG:r.ratio>1.5?WARN_FG:OK_FG,bold:true});
+    setCell(row,9,Math.round(r.amt),{numFmt:'#,##0',align:'right'});
+  });
+
+  // 저장
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`대리점_${D.dealer}_매출분석_${D.y2}년.xlsx`;
+  a.click(); URL.revokeObjectURL(url);
   proc(false);
 }
 
