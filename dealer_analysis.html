@@ -795,6 +795,75 @@ async function downloadPDF(){
 
   const {jsPDF}=window.jspdf;
   const pdf=new jsPDF('p','mm','a4');
+  const pageW=210, pageH=297;
+
+  // 각 탭을 캡처해서 PDF 페이지로 추가하는 함수
+  async function capturePage(tabIdx, addNewPage=true){
+    sw(tabIdx);
+    await new Promise(r=>setTimeout(r,600)); // 차트 렌더 대기
+
+    const el=document.getElementById('result');
+    const canvas=await html2canvas(el,{
+      scale:1.5,
+      useCORS:true,
+      backgroundColor:'#080c14',
+      logging:false,
+      windowWidth:1400,
+    });
+
+    if(addNewPage) pdf.addPage();
+
+    const imgW=pageW;
+    const imgH=(canvas.height * imgW) / canvas.width;
+
+    // 페이지 높이 넘으면 여러 페이지로 분할
+    if(imgH <= pageH){
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.85),'JPEG',0,0,imgW,imgH);
+    } else {
+      // 긴 페이지 분할
+      const totalPages=Math.ceil(imgH/pageH);
+      for(let p=0;p<totalPages;p++){
+        if(p>0) pdf.addPage();
+        const srcY=(p*pageH*canvas.width)/imgW;
+        const srcH=Math.min((pageH*canvas.width)/imgW, canvas.height-srcY);
+        const tmpCanvas=document.createElement('canvas');
+        tmpCanvas.width=canvas.width;
+        tmpCanvas.height=srcH;
+        const ctx=tmpCanvas.getContext('2d');
+        ctx.drawImage(canvas,0,-srcY);
+        pdf.addImage(tmpCanvas.toDataURL('image/jpeg',0.85),'JPEG',0,0,imgW,pageH);
+      }
+    }
+  }
+
+  // 탭0: 월별 매출 (첫 페이지 - addPage 없이)
+  sw(0); await new Promise(r=>setTimeout(r,600));
+  const el=document.getElementById('result');
+  const canvas0=await html2canvas(el,{scale:1.5,useCORS:true,backgroundColor:'#080c14',logging:false,windowWidth:1400});
+  const imgW=pageW;
+  const imgH0=(canvas0.height*imgW)/canvas0.width;
+  if(imgH0<=pageH){
+    pdf.addImage(canvas0.toDataURL('image/jpeg',0.85),'JPEG',0,0,imgW,imgH0);
+  } else {
+    const srcH=(pageH*canvas0.width)/imgW;
+    const tmpC=document.createElement('canvas');
+    tmpC.width=canvas0.width; tmpC.height=srcH;
+    tmpC.getContext('2d').drawImage(canvas0,0,0);
+    pdf.addImage(tmpC.toDataURL('image/jpeg',0.85),'JPEG',0,0,imgW,pageH);
+  }
+
+  // 탭1~5 캡처
+  for(let i=1;i<=5;i++){
+    await capturePage(i, true);
+  }
+
+  // 원래 탭으로 복귀
+  sw(0);
+
+  pdf.save(`대리점_${D.dealer}_매출분석보고서_${D.y2}년.pdf`);
+  proc(false);
+}
+  const pdf=new jsPDF('p','mm','a4');
   const pageW=210, pageH=297, margin=10;
   let curY=margin;
 
