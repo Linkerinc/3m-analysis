@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>대리점 매출 분석</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -263,13 +263,23 @@ async function initPyodide(){
   const steps=[[20,'Pyodide 로딩 중...'],[50,'micropip 초기화...'],[75,'pandas 설치 중...'],[90,'openpyxl 설치 중...'],[98,'준비 중...']];
   let si=0;
   const t=setInterval(()=>{if(si<steps.length){f.style.width=steps[si][0]+'%';m.textContent=steps[si][1];si++;}},900);
-  pyodide=await loadPyodide();
-  await pyodide.loadPackage(['micropip']);
-  await pyodide.runPythonAsync(`import micropip\nawait micropip.install(['pandas','openpyxl'])`);
-  clearInterval(t);f.style.width='100%';m.textContent='준비 완료!';
-  await new Promise(r=>setTimeout(r,400));
-  document.getElementById('loading').style.display='none';
-  document.getElementById('app').style.display='block';
+  try{
+    pyodide=await loadPyodide();
+    await pyodide.loadPackage(['micropip']);
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install(['pandas','openpyxl'])
+`);
+    clearInterval(t);f.style.width='100%';m.textContent='준비 완료!';
+    await new Promise(r=>setTimeout(r,400));
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(e){
+    clearInterval(t);
+    m.textContent='로딩 실패 — 새로고침 해주세요';
+    f.style.background='#ef4444';
+    console.error('Pyodide 로딩 오류:', e);
+  }
 }
 initPyodide();
 
