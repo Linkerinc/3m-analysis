@@ -266,8 +266,8 @@ async function initPyodide(){
   try{
     pyodide=await loadPyodide();
     await pyodide.loadPackage(['micropip']);
-    const aw='aw'+'ait';
-    await pyodide.runPythonAsync(`import micropip\n${aw} micropip.install(["pandas","openpyxl"])`);
+    await pyodide.runPythonAsync('import micropip');
+    await pyodide.globals.get('micropip').install(['pandas','openpyxl']).then(()=>{});
     clearInterval(t);f.style.width='100%';m.textContent='준비 완료!';
     await new Promise(r=>setTimeout(r,400));
     document.getElementById('loading').style.display='none';
