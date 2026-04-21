@@ -777,7 +777,7 @@ async function downloadExcel(){
 async function downloadPDF(){
   proc(true);
 
-  // 라이브러리 로드
+  // html2canvas 로드
   if(!window.html2canvas){
     await new Promise((res,rej)=>{
       const s=document.createElement('script');
@@ -785,17 +785,148 @@ async function downloadPDF(){
       s.onload=res; s.onerror=rej; document.head.appendChild(s);
     });
   }
-  if(!window.jspdf){
-    await new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-      s.onload=res; s.onerror=rej; document.head.appendChild(s);
-    });
+
+  // 차트 이미지 캡처
+  async function captureChart(tabIdx, canvasId){
+    sw(tabIdx); await new Promise(r=>setTimeout(r,400));
+    const c=document.getElementById(canvasId);
+    return c ? c.toDataURL('image/png',1.0) : null;
   }
 
-  const {jsPDF}=window.jspdf;
-  const pdf=new jsPDF('p','mm','a4');
-  const pageW=210, pageH=297;
+  const imgMonthly=await captureChart(0,'c-monthly');
+  const imgYoy    =await captureChart(0,'c-yoy');
+  const imgDivPie =await captureChart(1,'c-div-pie');
+  const imgDivBar =await captureChart(1,'c-div-bar');
+  const imgCust   =await captureChart(3,'c-cust');
+  const imgCustYoy=await captureChart(3,'c-cust-yoy');
+  const imgIndPie =await captureChart(4,'c-ind-pie');
+  sw(0);
+
+  const DCOL={'AAD':'#3b82f8','ASD':'#22c55e','EMD':'#a855f7','IATD':'#f59e0b','ISD':'#06b6d4','PSD':'#ec4899'};
+  const k=D.kpi, m=D.monthly;
+
+  const printWin=window.open('','_blank');
+  printWin.document.write(`<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',sans-serif;background:#ffffff;color:#1e293b;font-size:12px;padding:20px;}
+h1{font-size:20px;font-weight:800;color:#1e40af;text-align:center;margin-bottom:4px;}
+h2{font-size:14px;font-weight:700;color:#1e40af;margin:24px 0 10px;border-bottom:2px solid #e2e8f0;padding-bottom:6px;page-break-before:auto;}
+.cover{text-align:center;padding:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:18px;}
+.cover p{color:#64748b;font-size:12px;margin-top:5px;}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px;}
+.kpi{background:#f8fafc;border-radius:8px;padding:10px;border-top:2px solid var(--c);border:1px solid #e2e8f0;border-top:2px solid var(--c);}
+.kpi-l{font-size:9px;color:#64748b;margin-bottom:3px;}
+.kpi-v{font-size:16px;font-weight:800;color:var(--c);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;}
+.card-t{font-size:9px;color:#64748b;margin-bottom:5px;}
+.card img{width:100%;border-radius:4px;}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+th{background:#1e40af;color:#ffffff;padding:6px 10px;text-align:left;font-size:10px;font-weight:700;}
+td{padding:5px 10px;border-bottom:1px solid #e2e8f0;color:#1e293b;}
+tr:nth-child(even) td{background:#f8fafc;}
+.pos{color:#16a34a;font-weight:700;} .neg{color:#dc2626;font-weight:700;}
+.div-tag{padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700;}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .page-break{page-break-before:always;}
+}
+</style></head><body>
+<div class="cover">
+  <h1>3M B2B 대리점 매출 분석 보고서</h1>
+  <p>가맹점 ${D.dealer} &nbsp;·&nbsp; ${D.y1}년 ~ ${D.y2}년 &nbsp;·&nbsp; 생성일: ${new Date().toLocaleDateString('ko-KR')}</p>
+</div>
+<div class="kpi-row">
+  <div class="kpi" style="--c:#3b82f6"><div class="kpi-l">Year1(${D.y1}) 매출</div><div class="kpi-v">₩${(k.t1/1e8).toFixed(1)}억</div></div>
+  <div class="kpi" style="--c:#06b6d4"><div class="kpi-l">Year2(${D.y2}) 매출</div><div class="kpi-v">₩${(k.t2/1e8).toFixed(1)}억</div></div>
+  <div class="kpi" style="--c:${k.yoy>=0?'#22c55e':'#ef4444'}"><div class="kpi-l">YoY 성장률</div><div class="kpi-v">${k.yoy>=0?'+':''}${k.yoy.toFixed(1)}%</div></div>
+  <div class="kpi" style="--c:#a855f7"><div class="kpi-l">활성 고객사</div><div class="kpi-v">${k.cust_cnt}개사</div></div>
+  <div class="kpi" style="--c:#ef4444"><div class="kpi-l">이탈 위험</div><div class="kpi-v">${k.danger_cnt}개사</div></div>
+</div>
+
+<h2>📈 월별 매출 분석</h2>
+<div class="grid2">
+  <div class="card"><div class="card-t">월별 매출 추이</div><img src="${imgMonthly}"></div>
+  <div class="card"><div class="card-t">YoY 성장률 비교</div><img src="${imgYoy}"></div>
+</div>
+<table><tr><th>월</th><th>${D.y1}년 매출</th><th>${D.y2}년 매출</th><th>YoY</th><th>증감액</th></tr>
+${m.months.map((mo,i)=>{const y=m.y1[i]>0?((m.y2[i]/m.y1[i]-1)*100):null;const d=m.y2[i]-m.y1[i];
+return `<tr><td><b>${mo}월</b></td><td>₩${(m.y1[i]/1e6).toFixed(0)}M</td><td><b>₩${(m.y2[i]/1e6).toFixed(0)}M</b></td>
+<td class="${y>=0?'pos':'neg'}">${y!=null?(y>=0?'+':'')+y.toFixed(1)+'%':'-'}</td>
+<td class="${d>=0?'pos':'neg'}">₩${(d/1e6).toFixed(0)}M</td></tr>`;}).join('')}
+<tr style="background:#dbeafe;font-weight:700"><td><b>합계</b></td><td><b>₩${(m.y1.reduce((a,b)=>a+b,0)/1e8).toFixed(1)}억</b></td><td><b>₩${(m.y2.reduce((a,b)=>a+b,0)/1e8).toFixed(1)}억</b></td><td></td><td></td></tr>
+</table>
+
+<h2 class="page-break">🎯 Division별 분석</h2>
+<div class="grid2">
+  <div class="card"><div class="card-t">Division 매출 비중</div><img src="${imgDivPie}"></div>
+  <div class="card"><div class="card-t">Division YoY 비교</div><img src="${imgDivBar}"></div>
+</div>
+<table><tr><th>Division</th><th>${D.y1}년</th><th>${D.y2}년</th><th>YoY</th><th>비중</th></tr>
+${(()=>{const tot=Object.values(D.div).reduce((s,v)=>s+v.y2,0);
+return Object.entries(D.div).map(([d,v])=>{const y=v.y1>0?((v.y2/v.y1-1)*100):null;
+return `<tr><td><span class="div-tag" style="background:${DCOL[d]}22;color:${DCOL[d]}">${d}</span></td>
+<td>₩${(v.y1/1e6).toFixed(0)}M</td><td><b>₩${(v.y2/1e6).toFixed(0)}M</b></td>
+<td class="${y>=0?'pos':'neg'}">${y!=null?(y>=0?'+':'')+y.toFixed(1)+'%':'신규'}</td>
+<td>${tot>0?(v.y2/tot*100).toFixed(1):0}%</td></tr>`;}).join('');})()}
+</table>
+
+<h2>🏆 제품 랭킹 Top 30</h2>
+<table><tr><th>순위</th><th>제품명</th><th>Div</th><th>매출(Y2)</th><th>수량</th></tr>
+${D.prod_rows.slice(0,30).map((r,i)=>`<tr>
+<td style="color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7c3a':'#475569'};font-weight:700">${i+1}</td>
+<td style="font-size:10px">${r.제품명}</td>
+<td><span class="div-tag" style="background:${DCOL[r.Division]}22;color:${DCOL[r.Division]}">${r.Division}</span></td>
+<td><b>₩${(r.매출/1e6).toFixed(0)}M</b></td><td>${Math.round(r.수량)}</td></tr>`).join('')}
+</table>
+
+<h2 class="page-break">👥 고객사별 매출</h2>
+<div class="grid2">
+  <div class="card"><div class="card-t">고객사 매출 Top15</div><img src="${imgCust}"></div>
+  <div class="card"><div class="card-t">고객사 YoY</div><img src="${imgCustYoy}"></div>
+</div>
+<table><tr><th>고객사ID</th><th>업종</th><th>${D.y1}년</th><th>${D.y2}년</th><th>YoY</th><th>주문수</th></tr>
+${D.cust_rows.slice(0,20).map(r=>{const y=r.yoy;
+return `<tr><td><b>${r.주문자ID}</b></td><td style="font-size:10px;color:#94a3b8">${r.업종||'-'}</td>
+<td>₩${((r.y1매출||0)/1e6).toFixed(0)}M</td><td><b>₩${((r.y2매출||0)/1e6).toFixed(0)}M</b></td>
+<td class="${y>=0?'pos':'neg'}">${y!=null?(y>=0?'+':'')+y.toFixed(1)+'%':'신규'}</td>
+<td>${r.y2주문수||0}</td></tr>`;}).join('')}
+</table>
+
+<h2>🏭 업종별 분석</h2>
+<div class="grid2">
+  <div class="card"><div class="card-t">업종별 매출 비중</div><img src="${imgIndPie}"></div>
+  <div class="card">
+    <table><tr><th>업종</th><th>매출</th><th>고객사수</th><th>비중</th></tr>
+    ${(()=>{const tot=D.ind_rows.reduce((s,r)=>s+r.매출,0);
+    return D.ind_rows.map(r=>`<tr><td><b>${r['주문자 기업구분']||'미분류'}</b></td>
+    <td>₩${(r.매출/1e6).toFixed(0)}M</td><td>${r.고객수}</td>
+    <td>${tot>0?(r.매출/tot*100).toFixed(1):0}%</td></tr>`).join('');})()}
+    </table>
+  </div>
+</div>
+
+<h2 class="page-break">🔄 구매주기 이탈 위험 고객</h2>
+<table><tr><th>상태</th><th>고객사ID</th><th>업종</th><th>평균주기</th><th>마지막구매</th><th>경과일</th><th>초과비율</th><th>총매출</th></tr>
+${D.cycle_rows.filter(r=>r.status==='danger'||r.status==='warn').map(r=>`<tr>
+<td style="color:${r.status==='danger'?'#dc2626':'#d97706'};font-weight:700">${r.status==='danger'?'🔴 이탈위험':'⚠️ 이탈주의'}</td>
+<td><b>${r.id}</b></td><td style="font-size:10px;color:#64748b">${r.ind||'-'}</td>
+<td>${r.avg_cycle?Math.round(r.avg_cycle)+'일':'-'}</td>
+<td>${r.last_date}</td>
+<td style="color:${r.status==='danger'?'#dc2626':'#d97706'};font-weight:700">${r.last_days}일</td>
+<td style="color:${r.status==='danger'?'#dc2626':'#d97706'};font-weight:700">${r.ratio?r.ratio+'x':'-'}</td>
+<td>₩${(r.amt/1e6).toFixed(0)}M</td></tr>`).join('')}
+</table>
+</body></html>`);
+
+  printWin.document.close();
+  await new Promise(r=>setTimeout(r,2000));
+  printWin.print();
+  proc(false);
+}
 
   // 각 탭을 캡처해서 PDF 페이지로 추가하는 함수
   async function capturePage(tabIdx, addNewPage=true){
@@ -863,197 +994,7 @@ async function downloadPDF(){
   pdf.save(`대리점_${D.dealer}_매출분석보고서_${D.y2}년.pdf`);
   proc(false);
 }
-  const pdf=new jsPDF('p','mm','a4');
-  const pageW=210, pageH=297, margin=10;
-  let curY=margin;
 
-  // ── 표지 ────────────────────────────────────────────────
-  pdf.setFillColor(8,12,20);
-  pdf.rect(0,0,pageW,pageH,'F');
-
-  // 로고 영역
-  pdf.setFillColor(14,20,32);
-  pdf.roundedRect(margin,curY,pageW-margin*2,40,3,3,'F');
-  pdf.setTextColor(147,197,253);
-  pdf.setFontSize(22); pdf.setFont('helvetica','bold');
-  pdf.text('3M B2B 대리점 매출 분석 보고서',pageW/2,curY+16,{align:'center'});
-  pdf.setTextColor(148,163,184);
-  pdf.setFontSize(12); pdf.setFont('helvetica','normal');
-  pdf.text(`가맹점 ${D.dealer}  ·  ${D.y1}년 ~ ${D.y2}년`,pageW/2,curY+28,{align:'center'});
-  pdf.setFontSize(10);
-  pdf.text(`생성일: ${new Date().toLocaleDateString('ko-KR')}`,pageW/2,curY+36,{align:'center'});
-  curY+=48;
-
-  // ── KPI 요약 ────────────────────────────────────────────
-  const k=D.kpi;
-  const kpis=[
-    {label:`Year1(${D.y1}) 매출`,value:`₩${(k.t1/1e8).toFixed(1)}억`,color:[59,130,246]},
-    {label:`Year2(${D.y2}) 매출`,value:`₩${(k.t2/1e8).toFixed(1)}억`,color:[6,182,212]},
-    {label:'YoY 성장률',value:`${k.yoy>=0?'+':''}${k.yoy.toFixed(1)}%`,color:k.yoy>=0?[34,197,94]:[239,68,68]},
-    {label:'활성 고객사',value:`${k.cust_cnt}개사`,color:[168,85,247]},
-    {label:'이탈 위험',value:`${k.danger_cnt}개사`,color:[239,68,68]},
-  ];
-  const kW=(pageW-margin*2)/kpis.length-2;
-  kpis.forEach((kpi,i)=>{
-    const x=margin+i*(kW+2);
-    pdf.setFillColor(14,20,32); pdf.roundedRect(x,curY,kW,20,2,2,'F');
-    pdf.setFillColor(...kpi.color); pdf.rect(x,curY,kW,1,'F');
-    pdf.setTextColor(148,163,184); pdf.setFontSize(7); pdf.setFont('helvetica','normal');
-    pdf.text(kpi.label,x+kW/2,curY+7,{align:'center'});
-    pdf.setTextColor(...kpi.color); pdf.setFontSize(11); pdf.setFont('helvetica','bold');
-    pdf.text(kpi.value,x+kW/2,curY+15,{align:'center'});
-  });
-  curY+=26;
-
-  // ── 차트 캡처 함수 ───────────────────────────────────────
-  async function captureCanvas(canvasId, label, x, y, w, h){
-    const canvas=document.getElementById(canvasId);
-    if(!canvas) return y;
-    // 카드 배경 박스
-    pdf.setFillColor(14,20,32); pdf.roundedRect(x,y,w,h+8,2,2,'F');
-    pdf.setTextColor(148,163,184); pdf.setFontSize(8); pdf.setFont('helvetica','bold');
-    pdf.text(label,x+4,y+6);
-    try{
-      const imgData=canvas.toDataURL('image/png',1.0);
-      pdf.addImage(imgData,'PNG',x+2,y+8,w-4,h-2);
-    }catch(e){console.warn('차트 캡처 실패:',canvasId);}
-    return y+h+10;
-  }
-
-  // ── 탭 전환 후 차트 캡처 헬퍼 ───────────────────────────
-  async function switchAndCapture(tabIdx, canvasId, label, x, y, w, h){
-    sw(tabIdx);
-    await new Promise(r=>setTimeout(r,300));
-    return await captureCanvas(canvasId, label, x, y, w, h);
-  }
-
-  // ── 페이지 2: 월별 매출 ──────────────────────────────────
-  pdf.addPage();
-  pdf.setFillColor(8,12,20); pdf.rect(0,0,pageW,pageH,'F');
-  curY=margin;
-
-  pdf.setTextColor(147,197,253); pdf.setFontSize(13); pdf.setFont('helvetica','bold');
-  pdf.text('📈 월별 매출 분석',margin,curY+6); curY+=12;
-
-  sw(0); await new Promise(r=>setTimeout(r,400));
-  const chartW=(pageW-margin*2)/2-2;
-  curY=await captureCanvas('c-monthly','월별 매출 추이',margin,curY,chartW,55);
-  curY-=65+10;
-  await captureCanvas('c-yoy','YoY 성장률',margin+chartW+4,curY-0,chartW,55);
-  curY+=4;
-
-  // 월별 테이블
-  const m=D.monthly;
-  pdf.setFillColor(30,45,69); pdf.rect(margin,curY,pageW-margin*2,7,'F');
-  ['월','Year1 매출','Year2 매출','YoY(%)'].forEach((h,i)=>{
-    pdf.setTextColor(147,197,253); pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.text(h,margin+4+i*42,curY+5);
-  });
-  curY+=7;
-  m.months.forEach((mo,i)=>{
-    const yoy=m.y1[i]>0?((m.y2[i]/m.y1[i]-1)*100):null;
-    if(i%2===0){pdf.setFillColor(14,20,32);pdf.rect(margin,curY,pageW-margin*2,6,'F');}
-    pdf.setTextColor(226,232,240); pdf.setFontSize(7); pdf.setFont('helvetica','normal');
-    pdf.text(`${mo}월`,margin+4,curY+4);
-    pdf.text(`₩${(m.y1[i]/1e6).toFixed(0)}M`,margin+46,curY+4);
-    pdf.text(`₩${(m.y2[i]/1e6).toFixed(0)}M`,margin+88,curY+4);
-    if(yoy!=null){
-      pdf.setTextColor(yoy>=0?34:239,yoy>=0?197:68,yoy>=0?94:68);
-      pdf.text(`${yoy>=0?'+':''}${yoy.toFixed(1)}%`,margin+130,curY+4);
-    }
-    curY+=6;
-  });
-
-  // ── 페이지 3: Division & 제품 ────────────────────────────
-  pdf.addPage();
-  pdf.setFillColor(8,12,20); pdf.rect(0,0,pageW,pageH,'F');
-  curY=margin;
-
-  pdf.setTextColor(147,197,253); pdf.setFontSize(13); pdf.setFont('helvetica','bold');
-  pdf.text('🎯 Division별 분석',margin,curY+6); curY+=12;
-
-  sw(1); await new Promise(r=>setTimeout(r,400));
-  curY=await captureCanvas('c-div-pie','Division 비중',margin,curY,chartW,60);
-  curY-=60+10+4;
-  await captureCanvas('c-div-bar','Division YoY 비교',margin+chartW+4,curY,chartW,60);
-  curY+=8;
-
-  pdf.setTextColor(147,197,253); pdf.setFontSize(11); pdf.setFont('helvetica','bold');
-  pdf.text('🏆 제품 랭킹 Top 20',margin,curY+6); curY+=10;
-
-  const DCOL3={AAD:[59,130,246],ASD:[34,197,94],EMD:[168,85,247],IATD:[245,158,11],ISD:[6,182,212],PSD:[236,72,153]};
-  pdf.setFillColor(30,45,69); pdf.rect(margin,curY,pageW-margin*2,7,'F');
-  ['순위','제품명','Div','매출'].forEach((h,i)=>{
-    pdf.setTextColor(147,197,253); pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.text(h,margin+4+[0,12,110,130][i],curY+5);
-  });
-  curY+=7;
-  D.prod_rows.slice(0,20).forEach((r,i)=>{
-    if(curY>pageH-15){pdf.addPage();pdf.setFillColor(8,12,20);pdf.rect(0,0,pageW,pageH,'F');curY=margin;}
-    if(i%2===0){pdf.setFillColor(14,20,32);pdf.rect(margin,curY,pageW-margin*2,6,'F');}
-    const rankColor=i===0?[245,158,11]:i===1?[148,163,184]:i===2?[205,124,58]:[100,116,139];
-    pdf.setTextColor(...rankColor); pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.text(`${i+1}`,margin+4,curY+4);
-    pdf.setTextColor(226,232,240); pdf.setFont('helvetica','normal');
-    const pname=r.제품명.length>30?r.제품명.slice(0,30)+'...':r.제품명;
-    pdf.text(pname,margin+12,curY+4);
-    const dc=DCOL3[r.Division]||[148,163,184];
-    pdf.setTextColor(...dc); pdf.setFont('helvetica','bold');
-    pdf.text(r.Division,margin+110,curY+4);
-    pdf.setTextColor(226,232,240); pdf.setFont('helvetica','normal');
-    pdf.text(`₩${(r.매출/1e6).toFixed(0)}M`,margin+130,curY+4);
-    curY+=6;
-  });
-
-  // ── 페이지 4: 고객사 & 구매주기 ─────────────────────────
-  pdf.addPage();
-  pdf.setFillColor(8,12,20); pdf.rect(0,0,pageW,pageH,'F');
-  curY=margin;
-
-  pdf.setTextColor(147,197,253); pdf.setFontSize(13); pdf.setFont('helvetica','bold');
-  pdf.text('👥 고객사별 매출',margin,curY+6); curY+=12;
-
-  sw(3); await new Promise(r=>setTimeout(r,400));
-  curY=await captureCanvas('c-cust','고객사 매출 Top15',margin,curY,chartW,60);
-  curY-=60+10+4;
-  await captureCanvas('c-cust-yoy','고객사 YoY',margin+chartW+4,curY,chartW,60);
-  curY+=8;
-
-  pdf.setTextColor(147,197,253); pdf.setFontSize(11); pdf.setFont('helvetica','bold');
-  pdf.text('🔄 구매주기 이탈 위험 고객',margin,curY+6); curY+=10;
-
-  const dangerRows=D.cycle_rows.filter(r=>r.status==='danger'||r.status==='warn').slice(0,20);
-  pdf.setFillColor(30,45,69); pdf.rect(margin,curY,pageW-margin*2,7,'F');
-  ['상태','고객사ID','업종','평균주기','경과일','초과비율','총매출'].forEach((h,i)=>{
-    pdf.setTextColor(147,197,253); pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.text(h,margin+4+[0,22,54,86,104,120,140][i],curY+5);
-  });
-  curY+=7;
-  dangerRows.forEach((r,i)=>{
-    if(curY>pageH-15){pdf.addPage();pdf.setFillColor(8,12,20);pdf.rect(0,0,pageW,pageH,'F');curY=margin;}
-    const isDanger=r.status==='danger';
-    if(isDanger){pdf.setFillColor(59,16,16);pdf.rect(margin,curY,pageW-margin*2,6,'F');}
-    else{pdf.setFillColor(59,46,16);pdf.rect(margin,curY,pageW-margin*2,6,'F');}
-    pdf.setTextColor(isDanger?239:245,isDanger?68:158,isDanger?68:11);
-    pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.text(isDanger?'이탈위험':'이탈주의',margin+4,curY+4);
-    pdf.setTextColor(226,232,240); pdf.setFont('helvetica','normal');
-    pdf.text(r.id.slice(0,14),margin+22,curY+4);
-    pdf.text((r.ind||'-').slice(0,12),margin+54,curY+4);
-    pdf.text(r.avg_cycle?`${Math.round(r.avg_cycle)}일`:'-',margin+86,curY+4);
-    pdf.text(`${r.last_days}일`,margin+104,curY+4);
-    pdf.setTextColor(isDanger?239:245,isDanger?68:158,isDanger?68:11);
-    pdf.text(r.ratio?`${r.ratio}x`:'-',margin+120,curY+4);
-    pdf.setTextColor(226,232,240);
-    pdf.text(`₩${(r.amt/1e6).toFixed(0)}M`,margin+140,curY+4);
-    curY+=6;
-  });
-
-  // 저장
-  sw(0);
-  pdf.save(`대리점_${D.dealer}_매출분석보고서_${D.y2}년.pdf`);
-  proc(false);
-}
 function chartOpts(type,unit=''){
   return {responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}},tooltip:{callbacks:{label:ctx=>{
