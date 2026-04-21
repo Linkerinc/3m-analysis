@@ -10,10 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#080c14;--s1:#0e1420;--s2:#141d2e;--s3:#1b2540;
-  --border:#1e2d45;--accent:#3b82f6;--a2:#60a5fa;--a3:#93c5fd;
-  --green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a855f7;--cyan:#06b6d4;
-  --text:#e2e8f0;--text2:#94a3b8;--text3:#475569;
+  --bg:#f1f5f9;--s1:#ffffff;--s2:#f8fafc;--s3:#e2e8f0;
+  --border:#cbd5e1;--accent:#2563eb;--a2:#3b82f6;--a3:#0ea5e9;
+  --green:#16a34a;--red:#dc2626;--amber:#d97706;--purple:#7c3aed;--cyan:#0891b2;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
@@ -38,7 +38,7 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:0 28px
 .logo{font-size:15px;font-weight:800;color:var(--a2);letter-spacing:-0.3px;}
 .logo span{color:var(--text3);font-weight:400;font-size:13px;margin-left:8px;}
 .hdr-right{display:flex;align-items:center;gap:12px;}
-.dealer-badge{font-size:12px;font-weight:600;color:var(--cyan);background:#06b6d415;border:1px solid #06b6d430;padding:4px 12px;border-radius:99px;}
+.dealer-badge{font-size:12px;font-weight:600;color:var(--cyan);background:#0891b215;border:1px solid #0891b230;padding:4px 12px;border-radius:99px;}
 
 /* 업로드 */
 .main{padding:24px 28px;max-width:1400px;margin:0 auto;}
@@ -500,7 +500,7 @@ function renderDiv(){
   charts.divPie=new Chart(document.getElementById('c-div-pie').getContext('2d'),{
     type:'doughnut',
     data:{labels:divs,datasets:[{data:divs.map(d=>D.div[d].y2),backgroundColor:divs.map(d=>DCOL[d]+'cc'),borderColor:divs.map(d=>DCOL[d]),borderWidth:1}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}},tooltip:{callbacks:{label:ctx=>`₩${(ctx.raw/1e6).toFixed(0)}백만`}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#475569',font:{size:11}}},tooltip:{callbacks:{label:ctx=>`₩${(ctx.raw/1e6).toFixed(0)}백만`}}}}
   });
   charts.divBar=new Chart(document.getElementById('c-div-bar').getContext('2d'),{
     type:'bar',
@@ -578,7 +578,7 @@ function renderInd(){
   charts.indPie=new Chart(document.getElementById('c-ind-pie').getContext('2d'),{
     type:'doughnut',
     data:{labels:rows.map(r=>r['주문자 기업구분']||'미분류'),datasets:[{data:rows.map(r=>r.매출),backgroundColor:COLORS.map(c=>c+'cc'),borderColor:COLORS,borderWidth:1}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}},tooltip:{callbacks:{label:ctx=>`₩${(ctx.raw/1e6).toFixed(0)}백만`}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#475569',font:{size:11}}},tooltip:{callbacks:{label:ctx=>`₩${(ctx.raw/1e6).toFixed(0)}백만`}}}}
   });
   const divRows=D.ind_div;
   const inds=divRows.map(r=>r['주문자 기업구분']||'미분류');
@@ -586,7 +586,7 @@ function renderInd(){
   charts.indDiv=new Chart(document.getElementById('c-ind-div').getContext('2d'),{
     type:'bar',
     data:{labels:inds,datasets:divs.map(d=>({label:d,data:divRows.map(r=>r[d]||0),backgroundColor:DCOL[d]+'cc',borderColor:DCOL[d],borderWidth:1,borderRadius:2}))},
-    options:{...chartOpts('bar'),scales:{x:{stacked:true,ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#1e2d45'}},y:{stacked:true,ticks:{color:'#94a3b8',font:{size:10},callback:v=>`₩${(v/1e6).toFixed(0)}M`},grid:{color:'#1e2d45'}}}}
+    options:{...chartOpts('bar'),scales:{x:{stacked:true,ticks:{color:'#475569',font:{size:10}},grid:{color:'#e2e8f0'}},y:{stacked:true,ticks:{color:'#475569',font:{size:10},callback:v=>`₩${(v/1e6).toFixed(0)}M`},grid:{color:'#e2e8f0'}}}}
   });
   let h=`<thead><tr><th>업종</th><th>매출</th><th>고객사수</th><th>비중</th></tr></thead><tbody>`;
   const tot=rows.reduce((s,r)=>s+r.매출,0);
@@ -885,7 +885,7 @@ return `<tr><td><span class="div-tag" style="background:${DCOL[d]}22;color:${DCO
 <h2>🏆 제품 랭킹 Top 30</h2>
 <table><tr><th>순위</th><th>제품명</th><th>Div</th><th>매출(Y2)</th><th>수량</th></tr>
 ${D.prod_rows.slice(0,30).map((r,i)=>`<tr>
-<td style="color:${i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#cd7c3a':'#475569'};font-weight:700">${i+1}</td>
+<td style="color:${i===0?'#f59e0b':i===1?'#475569':i===2?'#cd7c3a':'#475569'};font-weight:700">${i+1}</td>
 <td style="font-size:10px">${r.제품명}</td>
 <td><span class="div-tag" style="background:${DCOL[r.Division]}22;color:${DCOL[r.Division]}">${r.Division}</span></td>
 <td><b>₩${(r.매출/1e6).toFixed(0)}M</b></td><td>${Math.round(r.수량)}</td></tr>`).join('')}
@@ -938,12 +938,12 @@ ${D.cycle_rows.filter(r=>r.status==='danger'||r.status==='warn').map(r=>`<tr>
 
 function chartOpts(type,unit=''){
   return {responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}},tooltip:{callbacks:{label:ctx=>{
+    plugins:{legend:{labels:{color:'#475569',font:{size:11}}},tooltip:{callbacks:{label:ctx=>{
       const v=ctx.raw; if(v==null)return '';
       if(unit==='%')return ` ${v.toFixed(1)}%`;
       return typeof v==='number'&&Math.abs(v)>100000?` ₩${(v/1e6).toFixed(0)}백만`:` ${v}`;
     }}}},
-    scales:{x:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#1e2d45'}},y:{ticks:{color:'#94a3b8',font:{size:10},callback:v=>unit==='%'?`${v}%`:Math.abs(v)>100000?`₩${(v/1e6).toFixed(0)}M`:v},grid:{color:'#1e2d45'}}}
+    scales:{x:{ticks:{color:'#475569',font:{size:10}},grid:{color:'#e2e8f0'}},y:{ticks:{color:'#475569',font:{size:10},callback:v=>unit==='%'?`${v}%`:Math.abs(v)>100000?`₩${(v/1e6).toFixed(0)}M`:v},grid:{color:'#e2e8f0'}}}
   };
 }
 function sw(idx){
