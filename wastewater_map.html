@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selport 영업 맵 · 폐수배출사업장</title>
+
+<!-- Pretendard (한글 최적화) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<!-- IBM Plex Mono (숫자/메타데이터용) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<style>
+  :root {
+    --bg: #F5F3EE;
+    --bg-panel: #FFFFFF;
+    --bg-sunken: #EDEAE2;
+    --ink: #1A1A1A;
+    --ink-mute: #6B655B;
+    --ink-soft: #8E8778;
+    --line: #D9D4C7;
+    --line-strong: #B8B1A0;
+    --accent: #B7410E;
+    --accent-soft: #E89573;
+    --accent-bg: #FBEFE8;
+    --highlight: #F0EBD8;
+    --ok: #3A6B45;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .mono { font-family: 'IBM Plex Mono', monospace; font-feature-settings: 'tnum'; }
+
+  /* === 레이아웃 === */
+  .app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+  }
+
+  header.topbar {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-panel);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .brand-mark {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    color: var(--ink-mute);
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  nav.tabs {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    background: var(--bg-sunken);
+    padding: 3px;
+    border-radius: 6px;
+  }
+  nav.tabs button {
+    border: 0;
+    background: transparent;
+    padding: 7px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-mute);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  nav.tabs button.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  nav.tabs button:disabled {
+    color: var(--ink-soft);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* === 메인 그리드 === */
+  main {
+    display: grid;
+    grid-template-columns: 280px 1fr 340px;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* === 좌측 필터 === */
+  aside.filters {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .filter-block { margin-bottom: 24px; }
+  .filter-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .filter-label .count {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  input.search {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border 0.15s;
+  }
+  input.search:focus { border-color: var(--accent); }
+
+  .check-list {
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    cursor: pointer;
+    font-size: 13px;
+    user-select: none;
+  }
+  .check-item:hover { color: var(--accent); }
+  .check-item input { accent-color: var(--accent); }
+  .check-item .n {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  button.reset {
+    width: 100%;
+    padding: 8px;
+    margin-top: 6px;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-mute);
+    font-family: inherit;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button.reset:hover {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
+  /* === 중앙: 지도 + 리스트 === */
+  .center {
+    display: grid;
+    grid-template-rows: 1fr 280px;
+    height: 100%;
+    min-width: 0;
+  }
+  #map {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-sunken);
+    z-index: 0;
+  }
+
+  /* 리스트 테이블 */
+  .list-wrap {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .list-head {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-sunken);
+  }
+  .list-head h3 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .list-head .meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  .list-head button.csv {
+    margin-left: auto;
+    background: var(--accent);
+    color: white;
+    border: 0;
+    padding: 7px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .list-head button.csv:hover { background: #8E3008; }
+
+  .list-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  table.list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.list thead {
+    position: sticky;
+    top: 0;
+    background: var(--bg-panel);
+    z-index: 2;
+  }
+  table.list th {
+    text-align: left;
+    padding: 10px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+    font-weight: 500;
+  }
+  table.list td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.list tr { cursor: pointer; transition: background 0.1s; }
+  table.list tr:hover td { background: var(--highlight); }
+  table.list tr.selected td {
+    background: var(--accent-bg);
+    border-left: 2px solid var(--accent);
+  }
+  table.list tr.selected td:first-child { padding-left: 10px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--bg-sunken);
+    border-radius: 100px;
+    font-size: 11px;
+    color: var(--ink-mute);
+    white-space: nowrap;
+  }
+
+  /* === 우측: 상세 패널 === */
+  aside.detail {
+    background: var(--bg-panel);
+    border-left: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .detail-empty {
+    color: var(--ink-soft);
+    font-size: 13px;
+    padding: 40px 12px;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .detail-empty .icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+  .detail h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .detail .sector {
+    display: inline-block;
+    margin-bottom: 16px;
+    padding: 3px 10px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .detail-field {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .detail-field:last-child { border: 0; }
+  .detail-field .key {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .detail-field .val {
+    font-size: 14px;
+    word-break: break-all;
+  }
+  .detail-field a { color: var(--accent); text-decoration: none; }
+  .detail-field a:hover { text-decoration: underline; }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .action-row a {
+    text-align: center;
+    padding: 10px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 4px;
+    font-size: 12px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .action-row a:hover { background: var(--accent); }
+  .action-row a.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+  }
+  .action-row a.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* === 마커 커스텀 === */
+  .custom-marker {
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+    background-color: rgba(183, 65, 14, 0.2) !important;
+  }
+  .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+    background-color: var(--accent) !important;
+    color: white !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-weight: 600 !important;
+  }
+
+  /* === 스크롤바 === */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+
+  /* === 로딩 === */
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(245, 243, 238, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 반응형 최소 대응 */
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 240px 1fr 300px; }
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    aside.filters, aside.detail { border: 0; border-bottom: 1px solid var(--line); max-height: 200px; }
+    .center { grid-template-rows: 1fr 200px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- 상단 바 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SELPORT</span>
+      <span class="brand-title">영업 맵</span>
+      <span class="brand-sub">/ 폐수배출사업장 v0.1</span>
+    </div>
+    <nav class="tabs">
+      <button class="active" data-tab="wastewater">폐수처리</button>
+      <button disabled>금속가공</button>
+      <button disabled>가구제조</button>
+      <button disabled>1차금속</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 좌측 필터 -->
+    <aside class="filters">
+      <div class="filter-block">
+        <div class="filter-label">
+          <span>검색</span>
+        </div>
+        <input type="text" class="search" id="searchInput" placeholder="상호·주소·대표자">
+      </div>
+
+      <div class="filter-block">
+        <div class="filter-label">
+          <span>시도</span>
+          <span class="count" id="regionCount">전체</span>
+        </div>
+        <div class="check-list" id="regionList"></div>
+        <button class="reset" id="resetRegion">시도 전체 선택</button>
+      </div>
+
+      <div class="filter-block">
+        <div class="filter-label">
+          <span>업종 구분</span>
+          <span class="count" id="sectorCount">전체</span>
+        </div>
+        <div class="check-list" id="sectorList"></div>
+        <button class="reset" id="resetSector">업종 전체 선택</button>
+      </div>
+
+      <div class="filter-block">
+        <div class="filter-label"><span>데이터 소스</span></div>
+        <div style="font-size: 11.5px; color: var(--ink-mute); line-height: 1.6;">
+          공공데이터포털<br>
+          <span class="mono" style="font-size: 10.5px;">전국폐수배출사업장표준데이터</span><br>
+          <span id="updatedLabel" class="mono" style="font-size: 10.5px; color: var(--ink-soft);">—</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 중앙: 지도 + 리스트 -->
+    <div class="center">
+      <div style="position: relative;">
+        <div id="map"></div>
+        <div class="loading-overlay" id="loading">
+          <div class="spinner"></div>
+          <div style="font-size: 12px; color: var(--ink-mute);" class="mono">LOADING DATA</div>
+        </div>
+      </div>
+
+      <div class="list-wrap">
+        <div class="list-head">
+          <h3>업체 리스트</h3>
+          <span class="meta" id="listMeta">0건</span>
+          <button class="csv" id="csvBtn">CSV 다운로드</button>
+        </div>
+        <div class="list-body">
+          <table class="list">
+            <thead>
+              <tr>
+                <th style="width:25%">사업장명</th>
+                <th style="width:12%">시도</th>
+                <th style="width:13%">시군구</th>
+                <th style="width:22%">업종</th>
+                <th style="width:15%">전화</th>
+                <th style="width:13%">대표자</th>
+              </tr>
+            </thead>
+            <tbody id="listBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측: 상세 -->
+    <aside class="detail" id="detailPanel">
+      <div class="detail-empty">
+        <div class="icon">◉</div>
+        지도 마커 또는 리스트에서<br>업체를 선택하세요
+      </div>
+    </aside>
+
+  </main>
+</div>
+
+<script>
+// ============================================================
+// Selport 영업 맵 · 폐수배출사업장
+// 데이터: 공공데이터포털 전국폐수배출사업장표준데이터
+// ============================================================
+
+const DATA_URL = 'data/wastewater.json';  // 실 운영용 경로
+
+// 전역 상태
+const state = {
+  all: [],           // 전체 데이터
+  filtered: [],      // 필터 적용 결과
+  regions: new Set(),// 선택된 시도
+  sectors: new Set(),// 선택된 업종
+  query: '',
+  selectedId: null,
+};
+
+// 지도 초기화 (대한민국 중심)
+const map = L.map('map', {
+  center: [36.5, 127.8],
+  zoom: 7,
+  zoomControl: true,
+  attributionControl: true,
+});
+
+// === 타일 레이어 ===
+// 기본: OpenStreetMap (API 키 불필요)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap',
+}).addTo(map);
+
+/* === [선택] 카카오맵 타일로 전환하려면 아래 주석 해제 (도메인 등록 필요) ===
+L.tileLayer('https://map.daumcdn.net/map_2d/1906hsm/L{z}/{y}/{x}.png', {
+  maxZoom: 19, minZoom: 6,
+  tms: true, crs: L.CRS.EPSG3857,
+}).addTo(map);
+*/
+
+const markerCluster = L.markerClusterGroup({
+  maxClusterRadius: 50,
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+});
+map.addLayer(markerCluster);
+
+const markerIcon = L.divIcon({
+  className: '',
+  html: '<div class="custom-marker"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+});
+
+let markerIndex = {}; // id → marker
+
+// ============================================================
+// 데이터 로드
+// ============================================================
+async function loadData() {
+  try {
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+
+    // id 부여
+    state.all = json.data.map((d, i) => ({ ...d, _id: i }));
+
+    // 업데이트 일자 표시
+    if (json.meta?.updated_at) {
+      document.getElementById('updatedLabel').textContent = 'UPDATED ' + json.meta.updated_at;
+    }
+
+    buildFilters();
+    applyFilters();
+    document.getElementById('loading').style.display = 'none';
+  } catch (err) {
+    document.getElementById('loading').innerHTML =
+      '<div style="color:var(--accent); text-align:center; max-width:300px;">' +
+      '<strong>데이터 로드 실패</strong><br>' +
+      '<span style="font-size:12px; color:var(--ink-mute);">' + err.message + '<br>' +
+      'sample_data.json 경로를 확인하세요.</span></div>';
+    console.error(err);
+  }
+}
+
+// ============================================================
+// 필터 UI 구성
+// ============================================================
+function buildFilters() {
+  // 시도
+  const regionMap = {};
+  state.all.forEach(d => {
+    regionMap[d.시도명] = (regionMap[d.시도명] || 0) + 1;
+  });
+  const regions = Object.keys(regionMap).sort();
+
+  const regionList = document.getElementById('regionList');
+  regionList.innerHTML = regions.map(r => `
+    <label class="check-item">
+      <input type="checkbox" value="${r}" checked data-kind="region">
+      <span>${r}</span>
+      <span class="n">${regionMap[r]}</span>
+    </label>
+  `).join('');
+  regions.forEach(r => state.regions.add(r));
+
+  // 업종 — 긴 이름은 축약 버전도 표시하지만 값은 전체 보존
+  const sectorMap = {};
+  state.all.forEach(d => {
+    sectorMap[d.업종구분명] = (sectorMap[d.업종구분명] || 0) + 1;
+  });
+  const sectors = Object.keys(sectorMap).sort();
+
+  const sectorList = document.getElementById('sectorList');
+  sectorList.innerHTML = sectors.map(s => `
+    <label class="check-item" title="${s}">
+      <input type="checkbox" value="${s}" checked data-kind="sector">
+      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">${s}</span>
+      <span class="n">${sectorMap[s]}</span>
+    </label>
+  `).join('');
+  sectors.forEach(s => state.sectors.add(s));
+
+  // 이벤트
+  regionList.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', e => {
+      if (e.target.checked) state.regions.add(e.target.value);
+      else state.regions.delete(e.target.value);
+      applyFilters();
+    });
+  });
+  sectorList.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', e => {
+      if (e.target.checked) state.sectors.add(e.target.value);
+      else state.sectors.delete(e.target.value);
+      applyFilters();
+    });
+  });
+
+  document.getElementById('resetRegion').addEventListener('click', () => {
+    regionList.querySelectorAll('input').forEach(cb => cb.checked = true);
+    state.regions = new Set(regions);
+    applyFilters();
+  });
+  document.getElementById('resetSector').addEventListener('click', () => {
+    sectorList.querySelectorAll('input').forEach(cb => cb.checked = true);
+    state.sectors = new Set(sectors);
+    applyFilters();
+  });
+}
+
+// ============================================================
+// 필터 적용
+// ============================================================
+function applyFilters() {
+  const q = state.query.trim().toLowerCase();
+
+  state.filtered = state.all.filter(d => {
+    if (!state.regions.has(d.시도명)) return false;
+    if (!state.sectors.has(d.업종구분명)) return false;
+    if (q) {
+      const hay = [d.사업장명, d.소재지도로명주소, d.대표자명].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // 카운트 업데이트
+  document.getElementById('regionCount').textContent = state.regions.size + '개 시도';
+  document.getElementById('sectorCount').textContent = state.sectors.size + '개 업종';
+  document.getElementById('listMeta').textContent = state.filtered.length.toLocaleString() + '건';
+
+  renderMarkers();
+  renderList();
+}
+
+// ============================================================
+// 지도 마커
+// ============================================================
+function renderMarkers() {
+  markerCluster.clearLayers();
+  markerIndex = {};
+
+  const markers = state.filtered
+    .filter(d => d.위도 && d.경도)
+    .map(d => {
+      const m = L.marker([d.위도, d.경도], { icon: markerIcon });
+      m.bindPopup(popupHtml(d), { maxWidth: 280 });
+      m.on('click', () => selectBiz(d._id, false));
+      markerIndex[d._id] = m;
+      return m;
+    });
+
+  markerCluster.addLayers(markers);
+}
+
+function popupHtml(d) {
+  return `
+    <div style="font-family: Pretendard, sans-serif; min-width: 200px;">
+      <div style="font-weight: 700; font-size: 13px; margin-bottom: 4px;">${d.사업장명}</div>
+      <div style="color:#B7410E; font-size: 11px; margin-bottom: 8px;">${d.업종구분명}</div>
+      <div style="font-size: 11.5px; color: #555; line-height: 1.5;">
+        ${d.소재지도로명주소 || ''}<br>
+        ${d.전화번호 ? `☎ ${d.전화번호}` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 리스트
+// ============================================================
+function renderList() {
+  const body = document.getElementById('listBody');
+  // 큰 데이터셋 대비 최대 500건만 DOM 렌더 (나머지는 필터/검색으로 좁히도록)
+  const show = state.filtered.slice(0, 500);
+  body.innerHTML = show.map(d => `
+    <tr data-id="${d._id}" class="${state.selectedId === d._id ? 'selected' : ''}">
+      <td><strong>${d.사업장명}</strong></td>
+      <td>${d.시도명 || '—'}</td>
+      <td>${d.시군구명 || '—'}</td>
+      <td><span class="badge">${d.업종구분명 || '—'}</span></td>
+      <td class="mono" style="font-size: 11.5px;">${d.전화번호 || '—'}</td>
+      <td>${d.대표자명 || '—'}</td>
+    </tr>
+  `).join('');
+
+  body.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const id = Number(tr.dataset.id);
+      selectBiz(id, true);
+    });
+  });
+
+  if (state.filtered.length > 500) {
+    body.insertAdjacentHTML('beforeend',
+      `<tr><td colspan="6" style="text-align:center; color:var(--ink-soft); padding:16px; font-size:12px;">
+        전체 ${state.filtered.length.toLocaleString()}건 중 500건 표시 · 필터로 범위를 좁혀주세요
+      </td></tr>`);
+  }
+}
+
+// ============================================================
+// 선택 동작
+// ============================================================
+function selectBiz(id, flyTo) {
+  state.selectedId = id;
+  const d = state.all.find(x => x._id === id);
+  if (!d) return;
+
+  // 리스트 하이라이트
+  document.querySelectorAll('#listBody tr').forEach(tr => {
+    tr.classList.toggle('selected', Number(tr.dataset.id) === id);
+  });
+
+  // 상세 패널
+  renderDetail(d);
+
+  // 지도 이동
+  if (flyTo && d.위도 && d.경도) {
+    map.flyTo([d.위도, d.경도], Math.max(map.getZoom(), 13), { duration: 0.5 });
+    setTimeout(() => {
+      const m = markerIndex[id];
+      if (m) m.openPopup();
+    }, 550);
+  }
+}
+
+function renderDetail(d) {
+  const panel = document.getElementById('detailPanel');
+  const addr = d.소재지도로명주소 || d.소재지지번주소 || '';
+  const mapsQ = encodeURIComponent(d.사업장명 + ' ' + addr);
+
+  panel.innerHTML = `
+    <h2>${d.사업장명}</h2>
+    <span class="sector">${d.업종구분명 || '업종 미분류'}</span>
+
+    <div class="detail-field">
+      <div class="key">주소</div>
+      <div class="val">${addr || '—'}</div>
+    </div>
+
+    <div class="detail-field">
+      <div class="key">전화</div>
+      <div class="val">${d.전화번호 ? `<a href="tel:${d.전화번호}">${d.전화번호}</a>` : '—'}</div>
+    </div>
+
+    <div class="detail-field">
+      <div class="key">대표자</div>
+      <div class="val">${d.대표자명 || '—'}</div>
+    </div>
+
+    <div class="detail-field">
+      <div class="key">좌표</div>
+      <div class="val mono" style="font-size: 12px;">${d.위도?.toFixed(5) || '—'}, ${d.경도?.toFixed(5) || '—'}</div>
+    </div>
+
+    <div class="action-row">
+      <a href="https://map.kakao.com/?q=${mapsQ}" target="_blank" rel="noopener">카카오맵</a>
+      <a href="https://www.google.com/search?q=${mapsQ}" target="_blank" rel="noopener" class="secondary">업체 검색</a>
+    </div>
+  `;
+}
+
+// ============================================================
+// CSV 다운로드
+// ============================================================
+document.getElementById('csvBtn').addEventListener('click', () => {
+  if (!state.filtered.length) return alert('다운로드할 데이터가 없습니다.');
+
+  const cols = ['사업장명','시도명','시군구명','소재지도로명주소','업종구분명','전화번호','대표자명','위도','경도'];
+  const esc = v => {
+    if (v == null) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = [cols.join(',')].concat(
+    state.filtered.map(d => cols.map(c => esc(d[c])).join(','))
+  );
+
+  // BOM 추가 → Excel 한글 깨짐 방지
+  const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `폐수배출사업장_${ts}_${state.filtered.length}건.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ============================================================
+// 검색
+// ============================================================
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.query = e.target.value;
+    applyFilters();
+  }, 180);
+});
+
+// ============================================================
+// 시작
+// ============================================================
+loadData();
+</script>
+
+</body>
+</html>
