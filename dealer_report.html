@@ -182,6 +182,33 @@ table .center{text-align:center}
 .rank-2{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
 .rank-3{background:#fed7aa;color:#9a3412;border-color:#fdba74}
 
+/* ───── Year Selector ───── */
+.year-selector{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 18px;flex-wrap:wrap;box-shadow:var(--shadow)
+}
+.year-selector .ys-label{
+  font-size:12px;color:var(--text2);font-weight:600;
+  display:flex;align-items:center;gap:6px
+}
+.year-selector .ys-icon{font-size:14px}
+.year-selector select{
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border2);border-radius:6px;
+  padding:7px 28px 7px 12px;font-size:12.5px;font-family:inherit;font-weight:600;
+  cursor:pointer;outline:none;appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 10px center
+}
+.year-selector select:hover{border-color:var(--text3)}
+.year-selector select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.year-selector .vs{color:var(--text3);font-weight:600;font-size:12px;letter-spacing:.05em}
+.year-selector .ys-info{color:var(--text3);font-size:11px;margin-left:auto}
+@media(max-width:600px){
+  .year-selector .ys-info{display:none}
+}
+
 /* ───── Modal ───── */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;
@@ -304,6 +331,8 @@ table .center{text-align:center}
       </div>
     </div>
 
+    <div class="year-selector" id="year-selector" style="display:none"></div>
+
     <div class="kpi-grid" id="kpi-grid"></div>
 
     <div class="tabs">
@@ -348,6 +377,10 @@ table .center{text-align:center}
 
       <div class="panel" id="p2" data-print-title="🏆 제품 랭킹">
         <div class="section-title">제품별 매출 순위 <span class="badge-soft">완료 주문 기준</span></div>
+        <div class="filter-row" id="prod-period-filter" style="display:none">
+          <button class="fbtn on" onclick="setProdPeriod('selected')">📊 선택 2년 비교</button>
+          <button class="fbtn" onclick="setProdPeriod('all')">📈 전체 기간 합산</button>
+        </div>
         <div class="filter-row" id="prod-filters"></div>
         <div class="filter-row">
           <input type="text" class="search" id="search-prod" placeholder="제품명 검색...">
@@ -438,6 +471,7 @@ table .center{text-align:center}
 let D = null;
 let charts = {};
 let prodFilter = 'all';
+let prodPeriod = 'selected';  // 'selected' | 'all'
 let cycleFilter = 'all';
 
 const PALETTE = ['#2563eb','#059669','#d97706','#9333ea','#0891b2','#db2777','#dc2626','#65a30d','#ea580c','#7c3aed','#0d9488','#ca8a04'];
@@ -465,6 +499,103 @@ function setStatus(text, kind){
   const pill = document.getElementById('status-pill');
   document.getElementById('status-text').textContent = text;
   pill.className = 'status-pill' + (kind?' '+kind:'');
+}
+
+// ─────────── 연도 선택기 ───────────
+function initYearSelector(){
+  const sel = document.getElementById('year-selector');
+  if(!D.yoyMode){
+    sel.style.display = 'none';
+    return;
+  }
+  sel.style.display = 'flex';
+
+  // 데이터에 3년 이상 있을 때만 드롭다운 표시 (2년이면 선택할 게 없음)
+  if(D.years.length === 2){
+    sel.innerHTML = `
+      <span class="ys-label"><span class="ys-icon">📅</span> 비교 연도</span>
+      <span style="font-weight:600;color:var(--text)">${D.selectedY1}년</span>
+      <span class="vs">VS</span>
+      <span style="font-weight:600;color:var(--accent)">${D.selectedY2}년</span>
+      <span class="ys-info">데이터에 2년치만 있어 자동 비교됩니다</span>
+    `;
+    return;
+  }
+
+  // 3년 이상: 드롭다운 표시
+  let html = `<span class="ys-label"><span class="ys-icon">📅</span> 비교 연도</span>`;
+  html += `<select id="year1-select" onchange="onYearChange()">`;
+  D.years.forEach(y => {
+    html += `<option value="${y}" ${y===D.selectedY1?'selected':''}>${y}년</option>`;
+  });
+  html += `</select>`;
+  html += `<span class="vs">VS</span>`;
+  html += `<select id="year2-select" onchange="onYearChange()">`;
+  D.years.forEach(y => {
+    html += `<option value="${y}" ${y===D.selectedY2?'selected':''}>${y}년</option>`;
+  });
+  html += `</select>`;
+  html += `<span class="ys-info">구매주기 분석은 항상 전체 데이터(${D.years.join('·')}) 기반</span>`;
+  sel.innerHTML = html;
+}
+
+function onYearChange(){
+  const y1 = Number(document.getElementById('year1-select').value);
+  const y2 = Number(document.getElementById('year2-select').value);
+  if(y1 === y2){
+    alert('서로 다른 연도를 선택해주세요.');
+    // 원래 값으로 되돌림
+    document.getElementById('year1-select').value = D.selectedY1;
+    document.getElementById('year2-select').value = D.selectedY2;
+    return;
+  }
+  // 항상 작은 연도가 Y1, 큰 연도가 Y2
+  D.selectedY1 = Math.min(y1, y2);
+  D.selectedY2 = Math.max(y1, y2);
+  recalcYoYTotals();
+
+  // YoY 영향받는 모든 영역 다시 그리기 (구매주기는 영향 없음)
+  document.getElementById('dealer-name').innerHTML =
+    `${D.dealerName} (${D.dealerCode})<span class="yoy-badge">YoY 비교 · ${D.selectedY1} vs ${D.selectedY2}</span>`;
+  initYearSelector();
+  // KPI 다시
+  renderKPI();
+  // 탭 다시
+  renderMonthly();
+  renderCategory();
+  renderProducts();
+  renderCustomers();
+  renderIndustry();
+  // 구매주기는 변경 안 함 (전체 데이터 기반이라 영향 없음)
+}
+
+function recalcYoYTotals(){
+  if(!D.yoyMode) return;
+  D.totalY1 = D.rows.filter(r=>r._year===D.selectedY1).reduce((s,r)=>s+r._amt,0);
+  D.totalY2 = D.rows.filter(r=>r._year===D.selectedY2).reduce((s,r)=>s+r._amt,0);
+}
+
+function renderKPI(){
+  if(D.yoyMode){
+    const yoyPct = D.totalY1 ? ((D.totalY2-D.totalY1)/D.totalY1*100) : 0;
+    const yoyClass = yoyPct >= 0 ? 'yoy-pos' : 'yoy-neg';
+    const yoySign = yoyPct >= 0 ? '+' : '';
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi"><div class="label">${D.selectedY1}년 매출</div><div class="value" style="color:var(--text2)">₩${fmt(D.totalY1)}</div><div class="sub">전년</div></div>
+      <div class="kpi"><div class="label">${D.selectedY2}년 매출</div><div class="value">₩${fmt(D.totalY2)}</div><div class="sub">최근</div></div>
+      <div class="kpi"><div class="label">YoY 성장률</div><div class="value ${yoyClass}">${yoySign}${yoyPct.toFixed(1)}%</div><div class="sub">전년 대비</div></div>
+      <div class="kpi"><div class="label">활성 고객사</div><div class="value">${fmt(D.custCount)}곳</div><div class="sub">전체 기간</div></div>
+      <div class="kpi"><div class="label">주문 건수</div><div class="value">${fmt(D.orderCount)}건</div><div class="sub">완료 주문</div></div>
+    `;
+  } else {
+    const avgOrder = D.totalAmt / Math.max(D.orderCount,1);
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi"><div class="label">총 매출</div><div class="value">₩${fmt(D.totalAmt)}</div><div class="sub">VAT 포함</div></div>
+      <div class="kpi"><div class="label">주문 건수</div><div class="value">${fmt(D.orderCount)}건</div><div class="sub">완료 주문</div></div>
+      <div class="kpi"><div class="label">활성 고객사</div><div class="value">${fmt(D.custCount)}곳</div><div class="sub">주문 발생 기준</div></div>
+      <div class="kpi"><div class="label">평균 주문금액</div><div class="value">₩${fmt(avgOrder)}</div><div class="sub">주문당</div></div>
+    `;
+  }
 }
 
 const dz = document.getElementById('dropzone');
@@ -543,24 +674,18 @@ function processData(buffer){
   // YoY 모드 자동 감지
   const years = [...new Set(rows.map(r=>r._year))].filter(y=>y>0).sort();
   const yoyMode = years.length >= 2;
-  const year2 = yoyMode ? years[years.length-1] : null;
-  const year1 = yoyMode ? years[years.length-2] : null;
-
-  let totalY1=0, totalY2=0;
-  if(yoyMode){
-    rows.forEach(r=>{
-      if(r._year===year1) totalY1 += r._amt;
-      else if(r._year===year2) totalY2 += r._amt;
-    });
-  }
+  // 기본값: 가장 최근 2년
+  const selectedY2 = yoyMode ? years[years.length-1] : null;
+  const selectedY1 = yoyMode ? years[years.length-2] : null;
 
   D = {
     rows, dealerName, dealerCode, dateMin, dateMax,
     totalAmt: rows.reduce((s,r)=>s+r._amt,0),
     orderCount: new Set(rows.map(r=>r._order)).size,
     custCount: new Set(rows.map(r=>r._cust)).size,
-    yoyMode, years, year1, year2, totalY1, totalY2
+    yoyMode, years, selectedY1, selectedY2, totalY1:0, totalY2:0
   };
+  recalcYoYTotals();
 
   document.getElementById('proc-msg').textContent='차트 그리는 중...';
   setTimeout(()=>{
@@ -573,31 +698,12 @@ function processData(buffer){
 
 function renderAll(){
   document.getElementById('dealer-name').innerHTML =
-    `${D.dealerName} (${D.dealerCode})${D.yoyMode?'<span class="yoy-badge">YoY 비교 모드</span>':''}`;
+    `${D.dealerName} (${D.dealerCode})${D.yoyMode?`<span class="yoy-badge">YoY 비교 · ${D.selectedY1} vs ${D.selectedY2}</span>`:''}`;
   document.getElementById('dealer-meta').textContent =
-    `분석 기간 ${fmtDate(D.dateMin).replace(/-/g,'.')} ~ ${fmtDate(D.dateMax).replace(/-/g,'.')} · 완료 주문 ${D.orderCount}건 · 고객사 ${D.custCount}곳`;
+    `분석 기간 ${fmtDate(D.dateMin).replace(/-/g,'.')} ~ ${fmtDate(D.dateMax).replace(/-/g,'.')} · 완료 주문 ${D.orderCount}건 · 고객사 ${D.custCount}곳${D.years.length>=3?` · 데이터 연도 ${D.years.join(', ')}`:''}`;
 
-  // KPI
-  if(D.yoyMode){
-    const yoyPct = D.totalY1 ? ((D.totalY2-D.totalY1)/D.totalY1*100) : 0;
-    const yoyClass = yoyPct >= 0 ? 'yoy-pos' : 'yoy-neg';
-    const yoySign = yoyPct >= 0 ? '+' : '';
-    document.getElementById('kpi-grid').innerHTML = `
-      <div class="kpi"><div class="label">${D.year1}년 매출</div><div class="value" style="color:var(--text2)">₩${fmt(D.totalY1)}</div><div class="sub">전년</div></div>
-      <div class="kpi"><div class="label">${D.year2}년 매출</div><div class="value">₩${fmt(D.totalY2)}</div><div class="sub">최근</div></div>
-      <div class="kpi"><div class="label">YoY 성장률</div><div class="value ${yoyClass}">${yoySign}${yoyPct.toFixed(1)}%</div><div class="sub">전년 대비</div></div>
-      <div class="kpi"><div class="label">활성 고객사</div><div class="value">${fmt(D.custCount)}곳</div><div class="sub">전체 기간</div></div>
-      <div class="kpi"><div class="label">주문 건수</div><div class="value">${fmt(D.orderCount)}건</div><div class="sub">완료 주문</div></div>
-    `;
-  } else {
-    const avgOrder = D.totalAmt / Math.max(D.orderCount,1);
-    document.getElementById('kpi-grid').innerHTML = `
-      <div class="kpi"><div class="label">총 매출</div><div class="value">₩${fmt(D.totalAmt)}</div><div class="sub">VAT 포함</div></div>
-      <div class="kpi"><div class="label">주문 건수</div><div class="value">${fmt(D.orderCount)}건</div><div class="sub">완료 주문</div></div>
-      <div class="kpi"><div class="label">활성 고객사</div><div class="value">${fmt(D.custCount)}곳</div><div class="sub">주문 발생 기준</div></div>
-      <div class="kpi"><div class="label">평균 주문금액</div><div class="value">₩${fmt(avgOrder)}</div><div class="sub">주문당</div></div>
-    `;
-  }
+  initYearSelector();
+  renderKPI();
 
   renderMonthly();
   renderCategory();
@@ -695,7 +801,7 @@ function renderMonthlySingle(){
 }
 
 function renderMonthlyYoY(){
-  document.getElementById('ch-monthly-title').textContent = `월별 매출 추이 · ${D.year1}년 vs ${D.year2}년`;
+  document.getElementById('ch-monthly-title').textContent = `월별 매출 추이 · ${D.selectedY1}년 vs ${D.selectedY2}년`;
   document.getElementById('ch-monthly-orders-title').textContent = 'YoY 성장률 비교';
 
   const labels = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -703,8 +809,8 @@ function renderMonthlyYoY(){
   const y2 = new Array(12).fill(0);
   D.rows.forEach(r=>{
     if(r._month<1 || r._month>12) return;
-    if(r._year===D.year1) y1[r._month-1] += r._amt;
-    else if(r._year===D.year2) y2[r._month-1] += r._amt;
+    if(r._year===D.selectedY1) y1[r._month-1] += r._amt;
+    else if(r._year===D.selectedY2) y2[r._month-1] += r._amt;
   });
   const yoyPct = y1.map((v1,i)=> v1 ? (y2[i]-v1)/v1*100 : (y2[i]>0?null:0));
 
@@ -712,9 +818,9 @@ function renderMonthlyYoY(){
   charts.monthly = new Chart(document.getElementById('ch-monthly'), {
     type:'line',
     data:{labels,datasets:[
-      {label:`${D.year1}년`,data:y1,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,0.15)',
+      {label:`${D.selectedY1}년`,data:y1,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,0.15)',
         fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#94a3b8',borderWidth:2,borderDash:[4,4]},
-      {label:`${D.year2}년`,data:y2,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.12)',
+      {label:`${D.selectedY2}년`,data:y2,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.12)',
         fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#2563eb',pointBorderColor:'#fff',
         pointBorderWidth:2,borderWidth:2.5}
     ]},
@@ -729,7 +835,7 @@ function renderMonthlyYoY(){
     options:chartOpts({unit:'%'})
   });
 
-  let html = `<thead><tr><th>월</th><th class="num">${D.year1}년 매출</th><th class="num">${D.year2}년 매출</th><th class="num">YoY</th><th class="num">증감액</th></tr></thead><tbody>`;
+  let html = `<thead><tr><th>월</th><th class="num">${D.selectedY1}년 매출</th><th class="num">${D.selectedY2}년 매출</th><th class="num">YoY</th><th class="num">증감액</th></tr></thead><tbody>`;
   labels.forEach((k,i)=>{
     const diff = y2[i] - y1[i];
     const diffCls = diff>=0?'yoy-pos':'yoy-neg';
@@ -777,17 +883,17 @@ function renderCategory(){
   });
 
   if(D.yoyMode){
-    document.getElementById('ch-minor-title').textContent = `대분류 YoY 비교 · ${D.year1} vs ${D.year2}`;
+    document.getElementById('ch-minor-title').textContent = `대분류 YoY 비교 · ${D.selectedY1} vs ${D.selectedY2}`;
     const cats = majorEntries.map(e=>e[0]);
-    const y1 = cats.map(c=>D.rows.filter(r=>r._major===c && r._year===D.year1).reduce((s,r)=>s+r._amt,0));
-    const y2 = cats.map(c=>D.rows.filter(r=>r._major===c && r._year===D.year2).reduce((s,r)=>s+r._amt,0));
+    const y1 = cats.map(c=>D.rows.filter(r=>r._major===c && r._year===D.selectedY1).reduce((s,r)=>s+r._amt,0));
+    const y2 = cats.map(c=>D.rows.filter(r=>r._major===c && r._year===D.selectedY2).reduce((s,r)=>s+r._amt,0));
 
     charts.minor?.destroy();
     charts.minor = new Chart(document.getElementById('ch-minor'), {
       type:'bar',
       data:{labels:cats,datasets:[
-        {label:`${D.year1}`,data:y1,backgroundColor:'#94a3b8',borderRadius:4},
-        {label:`${D.year2}`,data:y2,backgroundColor:'#2563eb',borderRadius:4}
+        {label:`${D.selectedY1}`,data:y1,backgroundColor:'#94a3b8',borderRadius:4},
+        {label:`${D.selectedY2}`,data:y2,backgroundColor:'#2563eb',borderRadius:4}
       ]},
       options:chartOpts({unit:'₩'})
     });
@@ -807,10 +913,10 @@ function renderCategory(){
 
   // 테이블
   if(D.yoyMode){
-    let html = `<thead><tr><th>대분류</th><th class="num">${D.year1}년</th><th class="num">${D.year2}년</th><th class="num">YoY</th><th class="num">비중</th></tr></thead><tbody>`;
+    let html = `<thead><tr><th>대분류</th><th class="num">${D.selectedY1}년</th><th class="num">${D.selectedY2}년</th><th class="num">YoY</th><th class="num">비중</th></tr></thead><tbody>`;
     majorEntries.forEach(([cat])=>{
-      const v1 = D.rows.filter(r=>r._major===cat && r._year===D.year1).reduce((s,r)=>s+r._amt,0);
-      const v2 = D.rows.filter(r=>r._major===cat && r._year===D.year2).reduce((s,r)=>s+r._amt,0);
+      const v1 = D.rows.filter(r=>r._major===cat && r._year===D.selectedY1).reduce((s,r)=>s+r._amt,0);
+      const v2 = D.rows.filter(r=>r._major===cat && r._year===D.selectedY2).reduce((s,r)=>s+r._amt,0);
       const pct = D.totalY2 ? v2/D.totalY2*100 : 0;
       html += `<tr>
         <td><strong>${cat}</strong></td>
@@ -852,47 +958,94 @@ function renderProducts(){
     fhtml += `<button class="fbtn ${prodFilter===m?'on':''}" onclick="setProdFilter('${m.replace(/'/g,"\\'")}')">${m}</button>`;
   });
   document.getElementById('prod-filters').innerHTML = fhtml;
+
+  // 기간 필터 토글: YoY 모드일 때만 표시
+  const periodFilter = document.getElementById('prod-period-filter');
+  if(D.yoyMode){
+    periodFilter.style.display = '';
+    periodFilter.innerHTML = `
+      <button class="fbtn ${prodPeriod==='selected'?'on':''}" onclick="setProdPeriod('selected')">📊 ${D.selectedY1} vs ${D.selectedY2} 비교</button>
+      <button class="fbtn ${prodPeriod==='all'?'on':''}" onclick="setProdPeriod('all')">📈 전체 기간 합산</button>
+    `;
+  } else {
+    periodFilter.style.display = 'none';
+    prodPeriod = 'all';  // single year 모드에서는 자동으로 전체로
+  }
+
   drawProductTable();
   document.getElementById('search-prod').oninput = drawProductTable;
 }
 
 function setProdFilter(f){ prodFilter = f; renderProducts(); }
+function setProdPeriod(p){ prodPeriod = p; renderProducts(); }
 
 function drawProductTable(){
   const q = document.getElementById('search-prod').value.toLowerCase();
   let filtered = D.rows;
+
+  // YoY 모드 + 선택 2년만 보기
+  const useYoY = D.yoyMode && prodPeriod === 'selected';
+  if(useYoY){
+    filtered = filtered.filter(r => r._year===D.selectedY1 || r._year===D.selectedY2);
+  }
   if(prodFilter!=='all') filtered = filtered.filter(r=>r._major===prodFilter);
   if(q) filtered = filtered.filter(r=>r._prod.toLowerCase().includes(q));
 
   const prod = {};
   filtered.forEach(r=>{
     const k = r._prod || '(이름 없음)';
-    if(!prod[k]) prod[k] = {amt:0,qty:0,major:r._major,minor:r._minor,code:r._code,cnt:new Set()};
+    if(!prod[k]) prod[k] = {
+      amt:0, qty:0, amtY1:0, amtY2:0, qtyY1:0, qtyY2:0,
+      major:r._major, minor:r._minor, code:r._code, cnt:new Set()
+    };
     prod[k].amt += r._amt;
     prod[k].qty += r._qty;
+    if(useYoY){
+      if(r._year===D.selectedY1){ prod[k].amtY1 += r._amt; prod[k].qtyY1 += r._qty; }
+      else if(r._year===D.selectedY2){ prod[k].amtY2 += r._amt; prod[k].qtyY2 += r._qty; }
+    }
     prod[k].cnt.add(r._order);
   });
+
   const list = Object.entries(prod).map(([name,d])=>({name,...d,cnt:d.cnt.size}))
-    .sort((a,b)=>b.amt-a.amt).slice(0,100);
+    .sort((a,b)=> useYoY ? b.amtY2-a.amtY2 : b.amt-a.amt).slice(0,100);
 
   if(list.length===0){
     document.getElementById('tbl-prod').innerHTML = '<tbody><tr><td class="empty">조건에 맞는 제품이 없습니다.</td></tr></tbody>';
     return;
   }
 
-  let html = '<thead><tr><th class="center">순위</th><th>제품명</th><th>대분류</th><th>중분류</th><th class="num">매출액</th><th class="num">수량</th><th class="num">주문수</th></tr></thead><tbody>';
-  list.forEach((p,i)=>{
-    const r = i<3 ? `rank-${i+1}` : '';
-    html += `<tr>
-      <td class="center"><span class="rank-badge ${r}">${i+1}</span></td>
-      <td>${p.name}</td>
-      <td><span class="muted">${p.major}</span></td>
-      <td><span class="muted">${p.minor}</span></td>
-      <td class="num">₩${fmt(p.amt)}</td>
-      <td class="num">${fmt(p.qty)}</td>
-      <td class="num">${fmt(p.cnt)}</td>
-    </tr>`;
-  });
+  let html;
+  if(useYoY){
+    html = `<thead><tr><th class="center">순위</th><th>제품명</th><th>대분류</th><th>중분류</th><th class="num">${D.selectedY1}년 매출</th><th class="num">${D.selectedY2}년 매출</th><th class="num">YoY</th><th class="num">${D.selectedY2}년 수량</th></tr></thead><tbody>`;
+    list.forEach((p,i)=>{
+      const r = i<3 ? `rank-${i+1}` : '';
+      html += `<tr>
+        <td class="center"><span class="rank-badge ${r}">${i+1}</span></td>
+        <td>${p.name}</td>
+        <td><span class="muted">${p.major}</span></td>
+        <td><span class="muted">${p.minor}</span></td>
+        <td class="num">${p.amtY1?'₩'+fmt(p.amtY1):'<span class="muted">-</span>'}</td>
+        <td class="num">${p.amtY2?'₩'+fmt(p.amtY2):'<span class="muted">-</span>'}</td>
+        <td class="num">${yoyFormat(p.amtY1,p.amtY2)}</td>
+        <td class="num">${fmt(p.qtyY2)}</td>
+      </tr>`;
+    });
+  } else {
+    html = '<thead><tr><th class="center">순위</th><th>제품명</th><th>대분류</th><th>중분류</th><th class="num">매출액</th><th class="num">수량</th><th class="num">주문수</th></tr></thead><tbody>';
+    list.forEach((p,i)=>{
+      const r = i<3 ? `rank-${i+1}` : '';
+      html += `<tr>
+        <td class="center"><span class="rank-badge ${r}">${i+1}</span></td>
+        <td>${p.name}</td>
+        <td><span class="muted">${p.major}</span></td>
+        <td><span class="muted">${p.minor}</span></td>
+        <td class="num">₩${fmt(p.amt)}</td>
+        <td class="num">${fmt(p.qty)}</td>
+        <td class="num">${fmt(p.cnt)}</td>
+      </tr>`;
+    });
+  }
   document.getElementById('tbl-prod').innerHTML = html + '</tbody>';
 }
 
@@ -905,8 +1058,8 @@ function renderCustomers(){
       amtY1:0, amtY2:0, orders:new Set(), lastDate:r._date};
     cust[k].amt += r._amt;
     if(D.yoyMode){
-      if(r._year===D.year1) cust[k].amtY1 += r._amt;
-      else if(r._year===D.year2) cust[k].amtY2 += r._amt;
+      if(r._year===D.selectedY1) cust[k].amtY1 += r._amt;
+      else if(r._year===D.selectedY2) cust[k].amtY2 += r._amt;
     }
     cust[k].orders.add(r._order);
     if(r._date > cust[k].lastDate) cust[k].lastDate = r._date;
@@ -920,7 +1073,7 @@ function renderCustomers(){
     type:'bar',
     data:{
       labels: top.map(c=>c.name.length>14?c.name.slice(0,12)+'...':c.name),
-      datasets:[{label:D.yoyMode?`${D.year2}년 매출`:'매출액',
+      datasets:[{label:D.yoyMode?`${D.selectedY2}년 매출`:'매출액',
         data:top.map(c=>D.yoyMode?c.amtY2:c.amt),backgroundColor:'#0891b2',borderRadius:6}]
     },
     options:{...chartOpts({unit:'₩'}),indexAxis:'y'}
@@ -928,15 +1081,15 @@ function renderCustomers(){
 
   // 우측 차트: YoY mode면 상위 고객 YoY 비교, 아니면 파레토
   if(D.yoyMode){
-    document.getElementById('ch-cust-pareto-title').innerHTML = `Top 15 고객 YoY <span class="badge-soft">${D.year1} vs ${D.year2}</span>`;
+    document.getElementById('ch-cust-pareto-title').innerHTML = `Top 15 고객 YoY <span class="badge-soft">${D.selectedY1} vs ${D.selectedY2}</span>`;
     charts.custPareto?.destroy();
     charts.custPareto = new Chart(document.getElementById('ch-cust-pareto'), {
       type:'bar',
       data:{
         labels: top.map(c=>c.name.length>14?c.name.slice(0,12)+'...':c.name),
         datasets:[
-          {label:`${D.year1}`,data:top.map(c=>c.amtY1),backgroundColor:'#94a3b8',borderRadius:4},
-          {label:`${D.year2}`,data:top.map(c=>c.amtY2),backgroundColor:'#2563eb',borderRadius:4}
+          {label:`${D.selectedY1}`,data:top.map(c=>c.amtY1),backgroundColor:'#94a3b8',borderRadius:4},
+          {label:`${D.selectedY2}`,data:top.map(c=>c.amtY2),backgroundColor:'#2563eb',borderRadius:4}
         ]
       },
       options:{...chartOpts({unit:'₩'}),indexAxis:'y'}
@@ -974,7 +1127,7 @@ function renderCustomers(){
     }
     let html;
     if(D.yoyMode){
-      html = `<thead><tr><th class="center">순위</th><th>고객사 ID</th><th>업체명</th><th>업종</th><th class="num">${D.year1}년</th><th class="num">${D.year2}년</th><th class="num">YoY</th><th class="num">주문수</th></tr></thead><tbody>`;
+      html = `<thead><tr><th class="center">순위</th><th>고객사 ID</th><th>업체명</th><th>업종</th><th class="num">${D.selectedY1}년</th><th class="num">${D.selectedY2}년</th><th class="num">YoY</th><th class="num">주문수</th></tr></thead><tbody>`;
       f.forEach(c=>{
         html += `<tr>
           <td class="center">${list.indexOf(c)+1}</td>
@@ -1057,10 +1210,10 @@ function renderIndustry(){
 
   let html;
   if(D.yoyMode){
-    html = `<thead><tr><th>업종</th><th class="num">${D.year1}년</th><th class="num">${D.year2}년</th><th class="num">YoY</th><th class="num">고객사 수</th><th class="num">비중</th></tr></thead><tbody>`;
+    html = `<thead><tr><th>업종</th><th class="num">${D.selectedY1}년</th><th class="num">${D.selectedY2}년</th><th class="num">YoY</th><th class="num">고객사 수</th><th class="num">비중</th></tr></thead><tbody>`;
     indEntries.forEach(([k,v])=>{
-      const v1 = D.rows.filter(r=>r._ind===k && r._year===D.year1).reduce((s,r)=>s+r._amt,0);
-      const v2 = D.rows.filter(r=>r._ind===k && r._year===D.year2).reduce((s,r)=>s+r._amt,0);
+      const v1 = D.rows.filter(r=>r._ind===k && r._year===D.selectedY1).reduce((s,r)=>s+r._amt,0);
+      const v2 = D.rows.filter(r=>r._ind===k && r._year===D.selectedY2).reduce((s,r)=>s+r._amt,0);
       const custCnt = new Set(D.rows.filter(r=>r._ind===k).map(r=>r._cust)).size;
       html += `<tr>
         <td>${k}</td>
@@ -1311,8 +1464,8 @@ function exportExcel(){
   ];
   if(D.yoyMode){
     summary.push(['','']);
-    summary.push([`${D.year1}년 매출`, D.totalY1]);
-    summary.push([`${D.year2}년 매출`, D.totalY2]);
+    summary.push([`${D.selectedY1}년 매출`, D.totalY1]);
+    summary.push([`${D.selectedY2}년 매출`, D.totalY2]);
     summary.push(['YoY 성장률(%)', D.totalY1?Number(((D.totalY2-D.totalY1)/D.totalY1*100).toFixed(2)):'']);
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), '요약');
@@ -1323,10 +1476,10 @@ function exportExcel(){
     const y1 = new Array(12).fill(0), y2 = new Array(12).fill(0);
     D.rows.forEach(r=>{
       if(r._month<1||r._month>12) return;
-      if(r._year===D.year1) y1[r._month-1]+=r._amt;
-      else if(r._year===D.year2) y2[r._month-1]+=r._amt;
+      if(r._year===D.selectedY1) y1[r._month-1]+=r._amt;
+      else if(r._year===D.selectedY2) y2[r._month-1]+=r._amt;
     });
-    const monthRows = [['월',`${D.year1}년 매출`,`${D.year2}년 매출`,'YoY(%)','증감액']];
+    const monthRows = [['월',`${D.selectedY1}년 매출`,`${D.selectedY2}년 매출`,'YoY(%)','증감액']];
     labels.forEach((k,i)=>{
       const yoy = y1[i]?Number(((y2[i]-y1[i])/y1[i]*100).toFixed(1)):'';
       monthRows.push([k,Math.round(y1[i]),Math.round(y2[i]),yoy,Math.round(y2[i]-y1[i])]);
@@ -1356,12 +1509,12 @@ function exportExcel(){
     grouped[k].amt += r._amt;
     grouped[k].qty += r._qty;
     if(D.yoyMode){
-      if(r._year===D.year1) grouped[k].amtY1+=r._amt;
-      else if(r._year===D.year2) grouped[k].amtY2+=r._amt;
+      if(r._year===D.selectedY1) grouped[k].amtY1+=r._amt;
+      else if(r._year===D.selectedY2) grouped[k].amtY2+=r._amt;
     }
   });
   const catRows = D.yoyMode
-    ? [['대분류','중분류',`${D.year1}년`,`${D.year2}년`,'YoY(%)','수량']]
+    ? [['대분류','중분류',`${D.selectedY1}년`,`${D.selectedY2}년`,'YoY(%)','수량']]
     : [['대분류','중분류','매출액','수량','비중(%)']];
   Object.values(grouped).sort((a,b)=>b.amt-a.amt).forEach(g=>{
     if(D.yoyMode){
@@ -1393,12 +1546,12 @@ function exportExcel(){
     if(!cust[r._cust]) cust[r._cust]={name:r._custName,ind:r._ind,amt:0,amtY1:0,amtY2:0,ord:new Set()};
     cust[r._cust].amt+=r._amt; cust[r._cust].ord.add(r._order);
     if(D.yoyMode){
-      if(r._year===D.year1) cust[r._cust].amtY1+=r._amt;
-      else if(r._year===D.year2) cust[r._cust].amtY2+=r._amt;
+      if(r._year===D.selectedY1) cust[r._cust].amtY1+=r._amt;
+      else if(r._year===D.selectedY2) cust[r._cust].amtY2+=r._amt;
     }
   });
   const custRows = D.yoyMode
-    ? [['순위','고객사ID','업체명','업종',`${D.year1}년`,`${D.year2}년`,'YoY(%)','주문수']]
+    ? [['순위','고객사ID','업체명','업종',`${D.selectedY1}년`,`${D.selectedY2}년`,'YoY(%)','주문수']]
     : [['순위','고객사ID','업체명','업종','매출액','주문수','매출비중(%)']];
   Object.entries(cust).map(([id,c])=>({id,...c,ord:c.ord.size}))
     .sort((a,b)=> D.yoyMode ? b.amtY2-a.amtY2 : b.amt-a.amt).forEach((c,i)=>{
