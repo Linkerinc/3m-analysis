@@ -277,8 +277,10 @@ table .center{text-align:center}
   .panel.on{animation:none}
   .chart-box{page-break-inside:avoid;height:240px !important;border:1px solid #ddd !important}
   .chart-box.lg{height:280px !important}
-  .tbl-wrap{max-height:none !important;overflow:visible !important;page-break-inside:auto}
-  table tr{page-break-inside:avoid}
+  .tbl-wrap{max-height:none !important;overflow:visible !important;page-break-inside:auto;border:none !important}
+  table{page-break-inside:auto}
+  table thead{display:table-header-group}  /* 페이지 넘어가도 헤더 반복 */
+  table tr{page-break-inside:avoid;page-break-after:auto}
   .row.cols-2{grid-template-columns:1fr 1fr !important;gap:10px !important}
   .panel::before{
     content:attr(data-print-title);display:block;font-size:14pt;font-weight:700;
@@ -286,6 +288,7 @@ table .center{text-align:center}
     color:var(--text)
   }
   .clickable{color:inherit !important;border:none !important}
+  .year-selector{box-shadow:none !important;border:1px solid #ddd !important;page-break-after:avoid}
 }
 </style>
 </head>
@@ -1431,22 +1434,52 @@ function switchTab(idx){
 // ─────────── PDF 인쇄 ───────────
 function printPDF(){
   if(!D) return;
-  // 인쇄 전 모든 패널을 잠깐 표시 → window.print() → 원래대로
+
+  // 1. 모든 패널을 임시로 표시 (숨겨진 탭의 차트도 그려지게)
   const panels = document.querySelectorAll('.panel');
-  // CSS @media print에서 모든 panel을 display:block 처리하므로 별도 조작 불필요
-  // 차트가 print 모드에서 다시 그려지도록 잠시 후 인쇄
+  panels.forEach(p => p.classList.add('on'));
+
+  // 2. 모든 표(tbl-wrap)의 높이 제한·스크롤 해제 (잘리지 않고 다음 페이지로 흘러가게)
+  const wraps = document.querySelectorAll('.tbl-wrap');
+  wraps.forEach(w => {
+    w.style.maxHeight = 'none';
+    w.style.overflow = 'visible';
+  });
+
+  // 3. 강제 reflow → 패널이 실제 크기를 가지게
+  void document.body.offsetHeight;
+
+  // 4. 차트 리사이즈 (이제 캔버스가 실제 크기를 가짐)
   setTimeout(()=>{
-    // 차트 resize 트리거 (인쇄 미리보기에서 깨끗하게)
-    Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
-    setTimeout(()=>window.print(), 200);
-  }, 100);
+    Object.values(charts).forEach(c=>{
+      try{ c.resize(); }catch(e){}
+    });
+
+    // 5. 차트 렌더링 시간 확보 후 인쇄
+    setTimeout(()=>window.print(), 500);
+  }, 200);
 }
 
-// 인쇄 직전/직후 차트 리사이즈
-window.addEventListener('beforeprint', ()=>{
-  Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
-});
+// 인쇄 종료 시 원래 상태로 복원
 window.addEventListener('afterprint', ()=>{
+  // 원래 활성 탭만 보이도록
+  const activeTabIdx = Array.from(document.querySelectorAll('.tab')).findIndex(t => t.classList.contains('on'));
+  document.querySelectorAll('.panel').forEach((p, i) => {
+    p.classList.toggle('on', i === activeTabIdx);
+  });
+  // 표 스타일 원복
+  document.querySelectorAll('.tbl-wrap').forEach(w => {
+    w.style.maxHeight = '';
+    w.style.overflow = '';
+  });
+  // 차트 다시 리사이즈
+  setTimeout(()=>{
+    Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
+  }, 100);
+});
+
+// 인쇄 직전 차트 한번 더 리사이즈 (브라우저 인쇄 다이얼로그에서 직접 인쇄 시)
+window.addEventListener('beforeprint', ()=>{
   Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
 });
 
