@@ -275,11 +275,11 @@ table .center{text-align:center}
   .panel{display:block !important;page-break-before:always;padding-top:14pt}
   .panel:first-of-type{page-break-before:auto}
   .panel.on{animation:none}
-  .chart-box{page-break-inside:avoid;height:240px !important;border:1px solid #ddd !important}
-  .chart-box.lg{height:280px !important}
+  /* chart-box 높이는 화면 크기 그대로 유지 → 인쇄 시 Chart.js 재렌더링 방지 */
+  .chart-box{page-break-inside:avoid;border:1px solid #ddd !important}
   .tbl-wrap{max-height:none !important;overflow:visible !important;page-break-inside:auto;border:none !important}
   table{page-break-inside:auto}
-  table thead{display:table-header-group}  /* 페이지 넘어가도 헤더 반복 */
+  table thead{display:table-header-group}
   table tr{page-break-inside:avoid;page-break-after:auto}
   .row.cols-2{grid-template-columns:1fr 1fr !important;gap:10px !important}
   .panel::before{
@@ -693,9 +693,36 @@ function processData(buffer){
   document.getElementById('proc-msg').textContent='차트 그리는 중...';
   setTimeout(()=>{
     renderAll();
-    document.getElementById('proc').classList.remove('on');
-    document.getElementById('dashboard').classList.add('on');
-    setStatus(`분석 완료 · ${D.orderCount}건`, 'done');
+
+    // 모든 차트의 캔버스 픽셀이 정상 크기로 그려지도록 사전 렌더링
+    // (숨겨진 패널의 차트는 0×0으로 그려지는 Chart.js 특성 우회)
+    const dashboard = document.getElementById('dashboard');
+    const panels = document.querySelectorAll('.panel');
+
+    // 1. dashboard를 투명하게 표시 (사용자에겐 안 보이지만 레이아웃은 계산됨)
+    dashboard.style.opacity = '0';
+    dashboard.classList.add('on');
+    panels.forEach(p => p.classList.add('on'));
+
+    // 2. 강제 reflow → 패널들이 실제 크기를 가짐
+    void document.body.offsetHeight;
+
+    // 3. 모든 차트 리사이즈 (이제 캔버스가 실제 픽셀 크기로 그려짐)
+    setTimeout(() => {
+      Object.values(charts).forEach(c => {
+        try { c.resize(); } catch(e) {}
+      });
+
+      // 4. 다음 프레임에 redraw 완료된 후, 비활성 패널 다시 숨기고 dashboard 표시
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          panels.forEach((p, i) => p.classList.toggle('on', i === 0));
+          dashboard.style.opacity = '';
+          document.getElementById('proc').classList.remove('on');
+          setStatus(`분석 완료 · ${D.orderCount}건`, 'done');
+        });
+      });
+    }, 100);
   }, 100);
 }
 
@@ -1429,56 +1456,56 @@ document.addEventListener('keydown', e => {
 function switchTab(idx){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('on',i===idx));
+  // 새로 보이는 패널의 차트 리사이즈 (안전장치)
+  setTimeout(()=>{
+    Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
+  }, 50);
 }
 
 // ─────────── PDF 인쇄 ───────────
 function printPDF(){
   if(!D) return;
 
-  // 1. 모든 패널을 임시로 표시 (숨겨진 탭의 차트도 그려지게)
-  const panels = document.querySelectorAll('.panel');
-  panels.forEach(p => p.classList.add('on'));
+  // 1. 모든 패널 표시 (차트는 데이터 로드 시 이미 사전 렌더링됨)
+  document.querySelectorAll('.panel').forEach(p => p.classList.add('on'));
 
-  // 2. 모든 표(tbl-wrap)의 높이 제한·스크롤 해제 (잘리지 않고 다음 페이지로 흘러가게)
-  const wraps = document.querySelectorAll('.tbl-wrap');
-  wraps.forEach(w => {
+  // 2. 표 스크롤 해제
+  document.querySelectorAll('.tbl-wrap').forEach(w => {
     w.style.maxHeight = 'none';
     w.style.overflow = 'visible';
   });
 
-  // 3. 강제 reflow → 패널이 실제 크기를 가지게
+  // 3. 강제 reflow
   void document.body.offsetHeight;
 
-  // 4. 차트 리사이즈 (이제 캔버스가 실제 크기를 가짐)
-  setTimeout(()=>{
-    Object.values(charts).forEach(c=>{
-      try{ c.resize(); }catch(e){}
-    });
+  // 4. 차트 한번 더 리사이즈 (안전장치)
+  Object.values(charts).forEach(c => {
+    try { c.resize(); } catch(e) {}
+  });
 
-    // 5. 차트 렌더링 시간 확보 후 인쇄
-    setTimeout(()=>window.print(), 500);
-  }, 200);
+  // 5. 다음 두 프레임 후 인쇄 (redraw 완료 보장)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => window.print(), 200);
+    });
+  });
 }
 
 // 인쇄 종료 시 원래 상태로 복원
 window.addEventListener('afterprint', ()=>{
-  // 원래 활성 탭만 보이도록
   const activeTabIdx = Array.from(document.querySelectorAll('.tab')).findIndex(t => t.classList.contains('on'));
   document.querySelectorAll('.panel').forEach((p, i) => {
     p.classList.toggle('on', i === activeTabIdx);
   });
-  // 표 스타일 원복
   document.querySelectorAll('.tbl-wrap').forEach(w => {
     w.style.maxHeight = '';
     w.style.overflow = '';
   });
-  // 차트 다시 리사이즈
   setTimeout(()=>{
     Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
   }, 100);
 });
 
-// 인쇄 직전 차트 한번 더 리사이즈 (브라우저 인쇄 다이얼로그에서 직접 인쇄 시)
 window.addEventListener('beforeprint', ()=>{
   Object.values(charts).forEach(c=>{ try{ c.resize(); }catch(e){} });
 });
