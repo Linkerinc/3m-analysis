@@ -184,6 +184,58 @@ table .center{text-align:center}
 .rank-2{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
 .rank-3{background:#fed7aa;color:#9a3412;border-color:#fdba74}
 
+/* ───── RFM Cards ───── */
+.rfm-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:8px}
+.rfm-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);
+  border-left:3px solid var(--border2)
+}
+.rfm-card:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(15,23,42,.06);border-color:var(--text3)}
+.rfm-card.on{background:#f0f7ff;border-color:var(--accent);border-left-color:var(--accent)}
+.rfm-card .seg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px}
+.rfm-card .seg-name{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.01em}
+.rfm-card .seg-count{font-size:11px;color:var(--text3);font-weight:500;background:var(--surface3);padding:2px 8px;border-radius:5px;white-space:nowrap}
+.rfm-card .seg-amt{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;font-variant-numeric:tabular-nums}
+.rfm-card .seg-share{font-size:10.5px;color:var(--text2);margin-bottom:8px}
+.rfm-card .seg-action{font-size:10.5px;color:var(--text2);line-height:1.5;padding-top:8px;border-top:1px dashed var(--border)}
+.rfm-card.all-card{border-left-color:var(--text3)}
+.rfm-card.all-card.on{border-left-color:var(--accent)}
+
+/* ───── Action List ───── */
+.action-list{display:grid;gap:10px}
+.action-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:14px 18px;display:grid;grid-template-columns:auto 1fr auto;gap:16px;
+  align-items:center;border-left:4px solid var(--border2);box-shadow:var(--shadow);
+  transition:all .15s
+}
+.action-card:hover{box-shadow:0 4px 10px rgba(15,23,42,.06);transform:translateY(-1px)}
+.action-card.p-urgent{border-left-color:#dc2626}
+.action-card.p-high{border-left-color:#d97706}
+.action-card.p-medium{border-left-color:#2563eb}
+.action-card.p-low{border-left-color:#94a3b8}
+.action-icon{font-size:26px;line-height:1}
+.action-body{min-width:0}
+.action-priority-badge{
+  display:inline-block;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;margin-bottom:6px;
+  border:1px solid transparent
+}
+.pb-urgent{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+.pb-high{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.pb-medium{background:#dbeafe;color:#1e40af;border-color:#bfdbfe}
+.pb-low{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+.action-title{font-weight:700;font-size:13.5px;color:var(--text);margin-bottom:5px;letter-spacing:-0.01em}
+.action-detail{color:var(--text2);font-size:11.8px;line-height:1.6;margin-bottom:6px}
+.action-todo{color:var(--accent-text);background:var(--accent-soft);font-size:11.5px;font-weight:500;padding:4px 10px;border-radius:5px;display:inline-block;border:1px solid #bfdbfe}
+.action-meta{text-align:right;color:var(--text3);font-size:11px;white-space:nowrap}
+.action-meta .seq-num{font-size:18px;font-weight:700;color:var(--text2);line-height:1}
+.action-meta .seq-ind{margin-top:4px}
+@media(max-width:640px){
+  .action-card{grid-template-columns:auto 1fr;padding:12px 14px}
+  .action-meta{grid-column:1/-1;text-align:left;border-top:1px dashed var(--border);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between}
+}
+
 /* ───── Year Selector ───── */
 .year-selector{
   display:flex;align-items:center;gap:10px;margin-bottom:14px;
@@ -347,6 +399,10 @@ table .center{text-align:center}
       <button class="tab" onclick="switchTab(3)">👥 고객사</button>
       <button class="tab" onclick="switchTab(4)">🏭 업종별</button>
       <button class="tab" onclick="switchTab(5)">🔄 구매주기</button>
+      <button class="tab" onclick="switchTab(6)">🎯 RFM 세그먼트</button>
+      <button class="tab" onclick="switchTab(7)">💧 매출 동인</button>
+      <button class="tab" onclick="switchTab(8)">📊 제품 BCG</button>
+      <button class="tab" onclick="switchTab(9)">🎯 오늘의 액션</button>
     </div>
 
     <div class="panels">
@@ -445,6 +501,93 @@ table .center{text-align:center}
           <button class="fbtn" onclick="filterCycle('🆕신규')">🆕 신규</button>
         </div>
         <div class="tbl-wrap"><table id="tbl-cycle"></table></div>
+      </div>
+
+      <div class="panel" id="p6" data-print-title="🎯 RFM 고객 세그멘테이션">
+        <p class="muted" style="margin-bottom:14px;font-size:11.5px;line-height:1.7">
+          <strong style="color:var(--text2)">RFM 분석</strong>은 모든 고객사를 <strong style="color:var(--text2)">R(Recency·최근 구매일)</strong>·<strong style="color:var(--text2)">F(Frequency·주문 빈도)</strong>·<strong style="color:var(--text2)">M(Monetary·매출 금액)</strong> 세 축으로 5점 만점 점수화하여 8개 세그먼트로 자동 분류합니다 ·
+          <strong style="color:var(--text2)">세그먼트 카드 또는 산점도의 점을 클릭</strong>하면 해당 고객사 리스트가 표시됩니다
+        </p>
+        <div class="row cols-2">
+          <div>
+            <div class="section-title">R × F 매트릭스 <span class="badge-soft">버블 크기 = 매출액 (M)</span></div>
+            <div class="chart-box lg"><canvas id="ch-rfm"></canvas></div>
+          </div>
+          <div>
+            <div class="section-title">세그먼트별 매출 구성</div>
+            <div class="chart-box lg"><canvas id="ch-rfm-dist"></canvas></div>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:8px">8개 세그먼트 한눈에 보기</div>
+        <div id="rfm-cards" class="rfm-cards"></div>
+        <div class="section-title" style="margin-top:18px">
+          <span id="rfm-selected-title">전체 고객사</span>
+          <span class="badge-soft" id="rfm-selected-count">-</span>
+        </div>
+        <div class="tbl-wrap"><table id="tbl-rfm"></table></div>
+      </div>
+
+      <div class="panel" id="p7" data-print-title="💧 YoY 매출 동인 분해">
+        <div id="wf-no-yoy" style="display:none;text-align:center;padding:60px 20px;color:var(--text3);font-size:13px">
+          📅 매출 동인 분해는 <strong style="color:var(--text2)">2개 연도 이상의 데이터</strong>가 있을 때만 작동합니다.
+        </div>
+        <div id="wf-content">
+          <p class="muted" style="margin-bottom:14px;font-size:11.5px;line-height:1.7">
+            전년 대비 매출 변화를 <strong style="color:var(--text2)">신규 고객 유입 / 기존 고객 확대 / 기존 고객 축소 / 이탈 고객 손실</strong> 4가지 동인으로 분해합니다 ·
+            "왜 매출이 늘었나·줄었나"의 진짜 원인을 보여줍니다
+          </p>
+          <div class="kpi-grid" id="wf-kpi" style="margin-bottom:16px"></div>
+          <div class="section-title" id="wf-chart-title">매출 변화 워터폴</div>
+          <div class="chart-box lg" style="height:380px"><canvas id="ch-waterfall"></canvas></div>
+          <div class="section-title" style="margin-top:18px">동인별 상세</div>
+          <div class="filter-row" id="wf-filters">
+            <button class="fbtn on" onclick="filterWaterfall('all')">전체</button>
+            <button class="fbtn" onclick="filterWaterfall('신규')">🆕 신규 유입</button>
+            <button class="fbtn" onclick="filterWaterfall('확대')">📈 기존 확대</button>
+            <button class="fbtn" onclick="filterWaterfall('축소')">📉 기존 축소</button>
+            <button class="fbtn" onclick="filterWaterfall('이탈')">❌ 이탈 손실</button>
+          </div>
+          <div class="tbl-wrap"><table id="tbl-waterfall"></table></div>
+        </div>
+      </div>
+
+      <div class="panel" id="p8" data-print-title="📊 제품 BCG 매트릭스">
+        <div id="bcg-no-yoy" style="display:none;text-align:center;padding:60px 20px;color:var(--text3);font-size:13px">
+          📅 BCG 매트릭스는 <strong style="color:var(--text2)">2개 연도 이상의 데이터</strong>가 있을 때만 작동합니다.
+        </div>
+        <div id="bcg-content">
+          <p class="muted" style="margin-bottom:14px;font-size:11.5px;line-height:1.7">
+            제품 포트폴리오를 <strong style="color:var(--text2)">매출 규모 × YoY 성장률</strong> 4분면에 배치합니다 ·
+            <span class="status-tag" style="background:#dcfce7;color:#166534;border-color:#86efac">🌟 스타</span> 고매출·고성장
+            <span class="status-tag" style="background:#dbeafe;color:#1e40af;border-color:#bfdbfe">💰 캐시카우</span> 고매출·정체/하락
+            <span class="status-tag" style="background:#fef3c7;color:#92400e;border-color:#fde68a">❓ 물음표</span> 저매출·고성장
+            <span class="status-tag" style="background:#f1f5f9;color:#475569;border-color:#cbd5e1">🐕 개</span> 저매출·하락
+            <span class="status-tag" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe">🆕 신규</span> 올해 첫 등장
+          </p>
+          <div class="filter-row" id="bcg-filters">
+            <button class="fbtn on" onclick="setBcgUnit('minor')">중분류 단위</button>
+            <button class="fbtn" onclick="setBcgUnit('major')">대분류 단위</button>
+          </div>
+          <div class="kpi-grid" id="bcg-kpi" style="margin-bottom:14px"></div>
+          <div class="chart-box lg" style="height:420px"><canvas id="ch-bcg"></canvas></div>
+          <div class="section-title" style="margin-top:18px">분면별 카테고리 상세</div>
+          <div class="tbl-wrap"><table id="tbl-bcg"></table></div>
+        </div>
+      </div>
+
+      <div class="panel" id="p9" data-print-title="🎯 오늘의 액션 리스트">
+        <p class="muted" style="margin-bottom:14px;font-size:11.5px;line-height:1.7">
+          RFM·구매주기·YoY 분석을 종합해 <strong style="color:var(--text2)">우선순위가 매겨진 영업 액션</strong>을 자동 생성합니다 ·
+          긴급도가 높은 순으로 정렬되며, <strong style="color:var(--text2)">고객사명 클릭</strong>시 구매 내역을 확인할 수 있습니다
+        </p>
+        <div class="kpi-grid" id="action-summary" style="margin-bottom:14px"></div>
+        <div class="filter-row" id="action-filters">
+          <button class="fbtn on" onclick="filterActions('all')">전체</button>
+          <button class="fbtn" onclick="filterActions('urgent')">🚨 긴급</button>
+          <button class="fbtn" onclick="filterActions('high')">🔥 높음</button>
+          <button class="fbtn" onclick="filterActions('medium')">📌 보통</button>
+        </div>
+        <div id="action-list" class="action-list"></div>
       </div>
     </div>
 
@@ -571,7 +714,10 @@ function onYearChange(){
   renderProducts();
   renderCustomers();
   renderIndustry();
-  // 구매주기는 변경 안 함 (전체 데이터 기반이라 영향 없음)
+  renderWaterfall();
+  renderBCG();
+  renderActions();
+  // 구매주기·RFM은 변경 안 함 (전체 데이터 기반이라 영향 없음)
 }
 
 function recalcYoYTotals(){
@@ -743,6 +889,10 @@ function renderAll(){
   renderCustomers();
   renderIndustry();
   renderCycle();
+  renderRFM();
+  renderWaterfall();
+  renderBCG();
+  renderActions();
 }
 
 function chartOpts(opts={}){
@@ -1454,6 +1604,865 @@ document.addEventListener('keydown', e => {
   if(e.key==='Escape') closeModal();
 });
 
+// ─────────── 탭 6: RFM 세그멘테이션 ───────────
+const RFM_SEGMENTS = [
+  {key:'champion', name:'🏆 챔피언', color:'#16a34a',
+    desc:'최근 자주 많이 구매', action:'VIP 관리 · 신제품 우선 제안 · 특별 혜택 제공'},
+  {key:'loyal', name:'💎 충성 고객', color:'#0891b2',
+    desc:'꾸준한 단골 거래처', action:'리텐션 핵심 · 정기 컨택 유지 · 멤버십 강화'},
+  {key:'potential', name:'🌱 잠재 충성', color:'#65a30d',
+    desc:'최근 활발한 성장 단계', action:'관계 발전 단계 · 업셀·교차판매 시도'},
+  {key:'new', name:'⭐ 신규', color:'#2563eb',
+    desc:'최근 첫 거래 시작', action:'온보딩 · 두 번째 구매 유도 · 친밀도 형성'},
+  {key:'stable', name:'✅ 안정', color:'#64748b',
+    desc:'평균적인 구매 패턴', action:'안정 유지 · 업셀 기회 탐색'},
+  {key:'attention', name:'⚠️ 관심 필요', color:'#d97706',
+    desc:'활성도 점차 둔화', action:'재방문 유도 · 맞춤 프로모션 발송'},
+  {key:'risk', name:'🚨 이탈 위험', color:'#dc2626',
+    desc:'자주 사던 가치 고객이 발길 끊김', action:'긴급 1:1 컨택 · 이탈 사유 파악'},
+  {key:'dormant', name:'💤 휴면', color:'#94a3b8',
+    desc:'장기 미접촉', action:'재활성화 캠페인 · 복귀 인센티브'}
+];
+const SEG_MAP = Object.fromEntries(RFM_SEGMENTS.map(s=>[s.key,s]));
+let rfmFilter = 'all';
+
+function calcRFM(){
+  const byCust = {};
+  D.rows.forEach(r=>{
+    if(!byCust[r._cust]) byCust[r._cust] = {
+      id:r._cust, name:r._custName, ind:r._ind,
+      lastDate:r._date, firstDate:r._date,
+      orders:new Set(), amt:0
+    };
+    const c = byCust[r._cust];
+    if(r._date>c.lastDate) c.lastDate = r._date;
+    if(r._date<c.firstDate) c.firstDate = r._date;
+    c.orders.add(r._order);
+    c.amt += r._amt;
+  });
+
+  const custs = Object.values(byCust).map(c=>({
+    id:c.id, name:c.name, ind:c.ind,
+    recency: Math.floor((D.dateMax-c.lastDate)/(1000*60*60*24)),
+    frequency: c.orders.size,
+    monetary: c.amt,
+    lastDate: c.lastDate,
+    firstDate: c.firstDate
+  }));
+  if(custs.length===0) return [];
+
+  // 5분위 점수화 (5=best)
+  function quintile(values, reverse){
+    const sorted = values.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v);
+    const n = sorted.length;
+    const scores = new Array(n).fill(3);
+    sorted.forEach((item,idx)=>{
+      const pct = (idx+0.5)/n;
+      let s;
+      if(pct<0.2) s=1;
+      else if(pct<0.4) s=2;
+      else if(pct<0.6) s=3;
+      else if(pct<0.8) s=4;
+      else s=5;
+      scores[item.i] = reverse?(6-s):s;
+    });
+    return scores;
+  }
+
+  const rs = quintile(custs.map(c=>c.recency), true);
+  const fs = quintile(custs.map(c=>c.frequency), false);
+  const ms = quintile(custs.map(c=>c.monetary), false);
+
+  custs.forEach((c,i)=>{
+    c.R=rs[i]; c.F=fs[i]; c.M=ms[i];
+    const R=c.R, F=c.F;
+    if(R>=4 && F>=4) c.seg='champion';
+    else if(R>=3 && F>=4) c.seg='loyal';
+    else if(R>=4 && F===3) c.seg='potential';
+    else if(R>=4 && F<=2) c.seg='new';
+    else if(R===3 && F===3) c.seg='stable';
+    else if(R===3 && F<=2) c.seg='attention';
+    else if(R<=2 && F>=3) c.seg='risk';
+    else c.seg='dormant';
+  });
+  return custs;
+}
+
+function renderRFM(){
+  const custs = calcRFM();
+  D._rfm = custs;
+  if(custs.length===0){
+    document.getElementById('rfm-cards').innerHTML = '<div class="empty">데이터가 없습니다.</div>';
+    return;
+  }
+
+  // 세그먼트별 집계
+  const segAgg = {};
+  RFM_SEGMENTS.forEach(s=>{ segAgg[s.key] = {count:0, amt:0}; });
+  custs.forEach(c=>{ segAgg[c.seg].count++; segAgg[c.seg].amt += c.monetary; });
+  const totalAmt = custs.reduce((s,c)=>s+c.monetary,0);
+  const totalCount = custs.length;
+
+  // ─ 산점도 (R x F, 버블 크기=M)
+  const maxM = Math.max(...custs.map(c=>c.monetary)) || 1;
+  const datasets = RFM_SEGMENTS.map(s=>{
+    const segCusts = custs.filter(c=>c.seg===s.key);
+    return {
+      label: s.name,
+      data: segCusts.map(c=>{
+        // jitter 추가 (같은 셀에 여러 명일 때 겹침 방지)
+        const seed = (c.id||'x').split('').reduce((h,ch)=>h*31+ch.charCodeAt(0),0);
+        const jx = ((seed%100)/100-0.5)*0.7;
+        const jy = (((seed>>4)%100)/100-0.5)*0.7;
+        return {
+          x: c.R+jx, y: c.F+jy,
+          r: Math.max(4, Math.min(22, Math.sqrt(c.monetary/maxM)*22)),
+          cust: c
+        };
+      }),
+      backgroundColor: s.color+'a0',
+      borderColor: s.color,
+      borderWidth: 1.2
+    };
+  }).filter(ds=>ds.data.length>0);
+
+  charts.rfm?.destroy();
+  charts.rfm = new Chart(document.getElementById('ch-rfm'), {
+    type:'bubble',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'right', labels:{color:TICK_COLOR,font:{size:10,family:'Pretendard Variable'},boxWidth:10,padding:8}},
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#0f172a', bodyColor:'#475569', padding:10, cornerRadius:6,
+          titleFont:{size:12,weight:'600',family:'Pretendard Variable'},
+          bodyFont:{size:11,family:'Pretendard Variable'},
+          callbacks:{
+            title: ctx => ctx[0].raw.cust.name,
+            label: ctx => {
+              const c = ctx.raw.cust;
+              return [` ${c.ind} · ${c.id}`,
+                ` R${c.R} F${c.F} M${c.M}`,
+                ` 매출: ₩${fmt(c.monetary)} · 주문: ${c.frequency}건`,
+                ` 마지막 구매: ${c.recency}일 전`];
+            }
+          }
+        }
+      },
+      scales:{
+        x:{title:{display:true,text:'R · 최근성 점수 (오른쪽이 최근)',color:TICK_COLOR,font:{size:11,weight:'600'}},
+          min:0.3,max:5.7,ticks:{stepSize:1,color:TICK_COLOR,font:{size:10}},grid:{color:GRID_COLOR}},
+        y:{title:{display:true,text:'F · 구매 빈도 점수 (위로 갈수록 자주)',color:TICK_COLOR,font:{size:11,weight:'600'}},
+          min:0.3,max:5.7,ticks:{stepSize:1,color:TICK_COLOR,font:{size:10}},grid:{color:GRID_COLOR}}
+      },
+      onClick: (evt, els)=>{
+        if(els.length){
+          const el = els[0];
+          const ds = charts.rfm.data.datasets[el.datasetIndex];
+          const cust = ds.data[el.index].cust;
+          showCustomerDetail(cust.id);
+        }
+      }
+    }
+  });
+
+  // ─ 도넛 (세그먼트별 매출)
+  const donutData = RFM_SEGMENTS.filter(s=>segAgg[s.key].amt>0);
+  charts.rfmDist?.destroy();
+  charts.rfmDist = new Chart(document.getElementById('ch-rfm-dist'), {
+    type:'doughnut',
+    data:{
+      labels: donutData.map(s=>s.name),
+      datasets:[{
+        data: donutData.map(s=>segAgg[s.key].amt),
+        backgroundColor: donutData.map(s=>s.color),
+        borderColor:'#fff', borderWidth:2
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'right',labels:{color:TICK_COLOR,font:{size:10.5,family:'Pretendard Variable'},boxWidth:10,padding:7}},
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#0f172a', bodyColor:'#475569', padding:10, cornerRadius:6,
+          callbacks:{
+            label: ctx => ` ${ctx.label}: ₩${fmt(ctx.raw)} (${(ctx.raw/totalAmt*100).toFixed(1)}%)`
+          }
+        }
+      },
+      cutout:'58%'
+    }
+  });
+
+  // ─ 8개 카드
+  const allCard = `<div class="rfm-card all-card ${rfmFilter==='all'?'on':''}" onclick="filterRFM('all')">
+    <div class="seg-head">
+      <span class="seg-name">📋 전체 고객사</span>
+      <span class="seg-count">${totalCount}곳</span>
+    </div>
+    <div class="seg-amt">₩${fmt(totalAmt)}</div>
+    <div class="seg-share">전체 매출 100%</div>
+    <div class="seg-action">아래 표에서 R·F·M 점수와 함께 모든 고객을 확인할 수 있습니다.</div>
+  </div>`;
+
+  const cards = RFM_SEGMENTS.map(s=>{
+    const a = segAgg[s.key];
+    if(a.count===0) return '';
+    const share = (a.amt/totalAmt*100).toFixed(1);
+    return `<div class="rfm-card ${rfmFilter===s.key?'on':''}" style="border-left-color:${s.color}" onclick="filterRFM('${s.key}')">
+      <div class="seg-head">
+        <span class="seg-name" style="color:${s.color}">${s.name}</span>
+        <span class="seg-count">${a.count}곳</span>
+      </div>
+      <div class="seg-amt">₩${fmt(a.amt)}</div>
+      <div class="seg-share">매출 비중 ${share}% · ${s.desc}</div>
+      <div class="seg-action">💡 ${s.action}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rfm-cards').innerHTML = allCard + cards;
+  drawRFMTable();
+}
+
+function filterRFM(seg){
+  rfmFilter = seg;
+  // 카드 상태 갱신
+  document.querySelectorAll('.rfm-card').forEach(c=>c.classList.remove('on'));
+  // 다시 그리기 (간단하게 전체 렌더 다시)
+  renderRFM();
+  // 테이블로 스크롤
+  setTimeout(()=>{
+    document.getElementById('tbl-rfm').scrollIntoView({behavior:'smooth',block:'center'});
+  },50);
+}
+
+function drawRFMTable(){
+  const custs = D._rfm || [];
+  const filtered = rfmFilter==='all' ? custs : custs.filter(c=>c.seg===rfmFilter);
+  const sorted = [...filtered].sort((a,b)=>b.monetary-a.monetary);
+
+  document.getElementById('rfm-selected-title').textContent =
+    rfmFilter==='all' ? '전체 고객사' : SEG_MAP[rfmFilter].name;
+  document.getElementById('rfm-selected-count').textContent =
+    `${sorted.length}곳 · ₩${fmt(sorted.reduce((s,c)=>s+c.monetary,0))}`;
+
+  if(sorted.length===0){
+    document.getElementById('tbl-rfm').innerHTML = '<tbody><tr><td class="empty">해당 세그먼트에 고객사가 없습니다.</td></tr></tbody>';
+    return;
+  }
+
+  let html = `<thead><tr>
+    <th class="center">#</th><th>고객사 ID</th><th>업체명</th><th>업종</th>
+    <th class="center">세그먼트</th>
+    <th class="center" title="Recency · 최근 구매일이 가까울수록 높음 (1~5점)">최근성</th>
+    <th class="center" title="Frequency · 주문 빈도가 많을수록 높음 (1~5점)">빈도</th>
+    <th class="center" title="Monetary · 매출 금액이 클수록 높음 (1~5점)">금액</th>
+    <th class="num">매출액</th><th class="num">주문수</th>
+    <th class="num">마지막 구매</th><th class="num">미구매 경과</th>
+  </tr></thead><tbody>`;
+  sorted.forEach((c,i)=>{
+    const s = SEG_MAP[c.seg];
+    html += `<tr>
+      <td class="center muted">${i+1}</td>
+      <td><a class="clickable" onclick="showCustomerDetail('${c.id}')" style="font-family:ui-monospace,monospace">${c.id}</a></td>
+      <td><a class="clickable" onclick="showCustomerDetail('${c.id}')">${c.name}</a></td>
+      <td>${c.ind}</td>
+      <td class="center"><span class="status-tag" style="background:${s.color}1f;color:${s.color};border-color:${s.color}40">${s.name}</span></td>
+      <td class="center" style="font-weight:600">${c.R}</td>
+      <td class="center" style="font-weight:600">${c.F}</td>
+      <td class="center" style="font-weight:600">${c.M}</td>
+      <td class="num">₩${fmt(c.monetary)}</td>
+      <td class="num">${c.frequency}건</td>
+      <td class="num">${fmtDate(c.lastDate)}</td>
+      <td class="num">${c.recency}일</td>
+    </tr>`;
+  });
+  document.getElementById('tbl-rfm').innerHTML = html + '</tbody>';
+}
+
+// ─────────── 탭 7: YoY 매출 동인 워터폴 ───────────
+let wfFilter = 'all';
+
+function calcWaterfall(){
+  if(!D.yoyMode) return null;
+  const Y1 = D.selectedY1, Y2 = D.selectedY2;
+  const byCust = {};  // {custId: {name, ind, y1Amt, y2Amt}}
+
+  D.rows.forEach(r=>{
+    if(!byCust[r._cust]) byCust[r._cust] = {id:r._cust, name:r._custName, ind:r._ind, y1:0, y2:0};
+    if(r._year===Y1) byCust[r._cust].y1 += r._amt;
+    else if(r._year===Y2) byCust[r._cust].y2 += r._amt;
+  });
+
+  const buckets = {new:[], expand:[], shrink:[], lost:[]};
+  let totalY1=0, totalY2=0;
+
+  Object.values(byCust).forEach(c=>{
+    totalY1 += c.y1;
+    totalY2 += c.y2;
+    if(c.y1===0 && c.y2>0){
+      buckets.new.push({...c, delta:c.y2});
+    } else if(c.y1>0 && c.y2===0){
+      buckets.lost.push({...c, delta:-c.y1});
+    } else if(c.y2>c.y1){
+      buckets.expand.push({...c, delta:c.y2-c.y1});
+    } else if(c.y2<c.y1){
+      buckets.shrink.push({...c, delta:c.y2-c.y1});  // 음수
+    }
+  });
+
+  const sumNew = buckets.new.reduce((s,c)=>s+c.delta,0);
+  const sumExpand = buckets.expand.reduce((s,c)=>s+c.delta,0);
+  const sumShrink = buckets.shrink.reduce((s,c)=>s+c.delta,0);
+  const sumLost = buckets.lost.reduce((s,c)=>s+c.delta,0);
+
+  return {Y1,Y2,totalY1,totalY2,buckets,sumNew,sumExpand,sumShrink,sumLost};
+}
+
+function renderWaterfall(){
+  const wf = calcWaterfall();
+  if(!wf){
+    document.getElementById('wf-no-yoy').style.display='block';
+    document.getElementById('wf-content').style.display='none';
+    return;
+  }
+  document.getElementById('wf-no-yoy').style.display='none';
+  document.getElementById('wf-content').style.display='block';
+  D._wf = wf;
+
+  // ─ KPI
+  const change = wf.totalY2 - wf.totalY1;
+  const yoyPct = wf.totalY1 ? (change/wf.totalY1*100) : 0;
+  document.getElementById('wf-kpi').innerHTML = `
+    <div class="kpi"><div class="label">${wf.Y1}년 매출</div><div class="value" style="color:var(--text2);font-size:18px">₩${fmt(wf.totalY1)}</div></div>
+    <div class="kpi"><div class="label">${wf.Y2}년 매출</div><div class="value" style="font-size:18px">₩${fmt(wf.totalY2)}</div></div>
+    <div class="kpi"><div class="label">총 변화액</div>
+      <div class="value ${change>=0?'yoy-pos':'yoy-neg'}" style="font-size:18px">${change>=0?'+':''}₩${fmt(change)}</div>
+      <div class="sub">${yoyPct>=0?'+':''}${yoyPct.toFixed(1)}%</div>
+    </div>
+    <div class="kpi"><div class="label">🆕 신규 유입</div><div class="value yoy-pos" style="font-size:18px">+₩${fmt(wf.sumNew)}</div><div class="sub">${wf.buckets.new.length}개사</div></div>
+    <div class="kpi"><div class="label">📈 기존 확대</div><div class="value yoy-pos" style="font-size:18px">+₩${fmt(wf.sumExpand)}</div><div class="sub">${wf.buckets.expand.length}개사</div></div>
+    <div class="kpi"><div class="label">📉 기존 축소</div><div class="value yoy-neg" style="font-size:18px">₩${fmt(wf.sumShrink)}</div><div class="sub">${wf.buckets.shrink.length}개사</div></div>
+    <div class="kpi"><div class="label">❌ 이탈 손실</div><div class="value yoy-neg" style="font-size:18px">₩${fmt(wf.sumLost)}</div><div class="sub">${wf.buckets.lost.length}개사</div></div>
+  `;
+
+  // ─ 워터폴 차트 (floating bar)
+  document.getElementById('wf-chart-title').textContent =
+    `매출 변화 워터폴 · ${wf.Y1}년 → ${wf.Y2}년`;
+  const labels = [`${wf.Y1}년 매출`, '❌ 이탈 손실', '📉 기존 축소', '🆕 신규 유입', '📈 기존 확대', `${wf.Y2}년 매출`];
+  const steps = [
+    {value:wf.totalY1, type:'start'},
+    {value:wf.sumLost, type:'down'},
+    {value:wf.sumShrink, type:'down'},
+    {value:wf.sumNew, type:'up'},
+    {value:wf.sumExpand, type:'up'},
+    {value:wf.totalY2, type:'end'}
+  ];
+  let cum=0;
+  const bars=[], colors=[];
+  steps.forEach(s=>{
+    if(s.type==='start'){
+      bars.push([0, s.value]); colors.push('#64748b'); cum = s.value;
+    } else if(s.type==='end'){
+      bars.push([0, s.value]); colors.push('#2563eb');
+    } else if(s.type==='down'){
+      bars.push([cum+s.value, cum]); colors.push('#dc2626'); cum += s.value;
+    } else {
+      bars.push([cum, cum+s.value]); colors.push('#16a34a'); cum += s.value;
+    }
+  });
+
+  charts.waterfall?.destroy();
+  charts.waterfall = new Chart(document.getElementById('ch-waterfall'), {
+    type:'bar',
+    data:{labels, datasets:[{
+      data:bars, backgroundColor:colors, borderRadius:4,
+      barPercentage:0.7, categoryPercentage:0.85
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#0f172a', bodyColor:'#475569', padding:10, cornerRadius:6,
+          callbacks:{
+            label: ctx => {
+              const s = steps[ctx.dataIndex];
+              if(s.type==='start' || s.type==='end') return ` ₩${fmt(s.value)}`;
+              const sign = s.value>=0?'+':'';
+              return ` ${sign}₩${fmt(s.value)}`;
+            }
+          }
+        },
+        datalabels: false  // chart.js datalabels plugin이 없을 수도 있으니
+      },
+      scales:{
+        x:{ticks:{color:TICK_COLOR,font:{size:10.5,family:'Pretendard Variable'}},grid:{display:false}},
+        y:{ticks:{color:TICK_COLOR,font:{size:10},callback:v=>fmtM(v)},grid:{color:GRID_COLOR}}
+      }
+    }
+  });
+
+  drawWaterfallTable();
+}
+
+function filterWaterfall(f){
+  wfFilter = f;
+  const map = ['all','신규','확대','축소','이탈'];
+  document.querySelectorAll('#wf-filters .fbtn').forEach((b,i)=>{
+    b.classList.toggle('on', map[i]===f);
+  });
+  drawWaterfallTable();
+}
+
+function drawWaterfallTable(){
+  const wf = D._wf;
+  if(!wf) return;
+  const Y1=wf.Y1, Y2=wf.Y2;
+
+  const allRows = [
+    ...wf.buckets.new.map(c=>({...c, bucket:'신규', tag:'🆕 신규', cls:'s-new'})),
+    ...wf.buckets.expand.map(c=>({...c, bucket:'확대', tag:'📈 확대', cls:'s-ok'})),
+    ...wf.buckets.shrink.map(c=>({...c, bucket:'축소', tag:'📉 축소', cls:'s-warn'})),
+    ...wf.buckets.lost.map(c=>({...c, bucket:'이탈', tag:'❌ 이탈', cls:'s-risk'}))
+  ];
+  const filtered = wfFilter==='all' ? allRows : allRows.filter(r=>r.bucket===wfFilter);
+  const sorted = [...filtered].sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+
+  if(sorted.length===0){
+    document.getElementById('tbl-waterfall').innerHTML = '<tbody><tr><td class="empty">해당 항목이 없습니다.</td></tr></tbody>';
+    return;
+  }
+
+  let html = `<thead><tr>
+    <th class="center">#</th><th class="center">동인</th>
+    <th>고객사 ID</th><th>업체명</th><th>업종</th>
+    <th class="num">${Y1}년 매출</th><th class="num">${Y2}년 매출</th>
+    <th class="num">증감액</th>
+  </tr></thead><tbody>`;
+  sorted.forEach((c,i)=>{
+    const deltaCls = c.delta>=0?'yoy-pos':'yoy-neg';
+    const deltaSign = c.delta>=0?'+':'';
+    html += `<tr>
+      <td class="center muted">${i+1}</td>
+      <td class="center"><span class="status-tag ${c.cls}">${c.tag}</span></td>
+      <td><a class="clickable" onclick="showCustomerDetail('${c.id}')" style="font-family:ui-monospace,monospace">${c.id}</a></td>
+      <td><a class="clickable" onclick="showCustomerDetail('${c.id}')">${c.name}</a></td>
+      <td>${c.ind}</td>
+      <td class="num">${c.y1?'₩'+fmt(c.y1):'<span class="muted">-</span>'}</td>
+      <td class="num">${c.y2?'₩'+fmt(c.y2):'<span class="muted">-</span>'}</td>
+      <td class="num"><span class="${deltaCls}">${deltaSign}₩${fmt(c.delta)}</span></td>
+    </tr>`;
+  });
+  document.getElementById('tbl-waterfall').innerHTML = html + '</tbody>';
+}
+
+// ─────────── 탭 8: 제품 BCG 매트릭스 ───────────
+const BCG_QUADRANTS = {
+  star:     {name:'🌟 스타',     color:'#16a34a', desc:'고매출 + 고성장',     action:'적극 투자 · 마케팅 강화 · 재고 확보 · 영업 우선순위 1'},
+  cashcow:  {name:'💰 캐시카우', color:'#2563eb', desc:'고매출 + 정체/하락', action:'안정 유지 · 이익 극대화 · 효율 개선 · 단골 거래처 락인'},
+  question: {name:'❓ 물음표',   color:'#d97706', desc:'저매출 + 고성장',     action:'잠재력 검증 · 선택적 투자 · 시장 반응 모니터링'},
+  dog:      {name:'🐕 개',       color:'#64748b', desc:'저매출 + 하락',       action:'전략 재검토 · 점진 축소 · 리소스 회수 검토'},
+  new:      {name:'🆕 신규',     color:'#9333ea', desc:'올해 첫 등장',         action:'초기 시장 반응 확인 · 영업 추적 강화'}
+};
+let bcgUnit = 'minor';  // 'minor' | 'major'
+
+function calcBCG(){
+  if(!D.yoyMode) return null;
+  const Y1 = D.selectedY1, Y2 = D.selectedY2;
+  const items = {};
+  D.rows.forEach(r=>{
+    const k = bcgUnit==='major' ? r._major : `${r._major} > ${r._minor}`;
+    if(!items[k]) items[k] = {name:k, major:r._major, minor:r._minor, y1:0, y2:0, qty:0, orders:new Set()};
+    if(r._year===Y1) items[k].y1 += r._amt;
+    else if(r._year===Y2) items[k].y2 += r._amt;
+    items[k].qty += r._qty;
+    items[k].orders.add(r._order);
+  });
+
+  const arr = Object.values(items)
+    .map(it=>{
+      const yoy = it.y1>0 ? (it.y2-it.y1)/it.y1*100 : (it.y2>0 ? null : 0);  // null = 신규
+      return {name:it.name, major:it.major, minor:it.minor, y1:it.y1, y2:it.y2,
+        yoy, amt:it.y2, qty:it.qty, orders:it.orders.size};
+    })
+    .filter(it=>it.amt>0 || it.y1>0);  // Y2에 매출 없으면 빼되, Y1에만 있는 것(이탈)도 포함
+
+  // 매출 중앙값 (Y2 기준, 신규 제외)
+  const amts = arr.filter(a=>a.amt>0).map(a=>a.amt).sort((a,b)=>a-b);
+  const medianAmt = amts.length ? amts[Math.floor(amts.length/2)] : 0;
+
+  // 분면 분류
+  arr.forEach(a=>{
+    if(a.yoy===null){
+      a.quadrant = 'new';
+    } else if(a.amt>=medianAmt){
+      a.quadrant = a.yoy>=0 ? 'star' : 'cashcow';
+    } else {
+      a.quadrant = a.yoy>=0 ? 'question' : 'dog';
+    }
+  });
+
+  return {Y1, Y2, items: arr, medianAmt};
+}
+
+function renderBCG(){
+  const bcg = calcBCG();
+  if(!bcg){
+    document.getElementById('bcg-no-yoy').style.display='block';
+    document.getElementById('bcg-content').style.display='none';
+    return;
+  }
+  document.getElementById('bcg-no-yoy').style.display='none';
+  document.getElementById('bcg-content').style.display='block';
+  D._bcg = bcg;
+
+  // 분면별 집계
+  const qAgg = {};
+  Object.keys(BCG_QUADRANTS).forEach(k=>{ qAgg[k]={count:0,amt:0}; });
+  bcg.items.forEach(it=>{ qAgg[it.quadrant].count++; qAgg[it.quadrant].amt += it.amt; });
+  const totalAmt = bcg.items.reduce((s,it)=>s+it.amt,0) || 1;
+
+  // KPI
+  let kpiHtml = '';
+  Object.entries(BCG_QUADRANTS).forEach(([k,q])=>{
+    const a = qAgg[k];
+    if(a.count===0) return;
+    kpiHtml += `<div class="kpi" style="border-left:3px solid ${q.color}">
+      <div class="label">${q.name}</div>
+      <div class="value" style="font-size:18px;color:${q.color}">${a.count}개</div>
+      <div class="sub">₩${fmt(a.amt)} · ${(a.amt/totalAmt*100).toFixed(1)}%</div>
+    </div>`;
+  });
+  document.getElementById('bcg-kpi').innerHTML = kpiHtml;
+
+  // 차트 (산점도)
+  // YoY 값 범위 (신규는 별도 처리)
+  const yoyValues = bcg.items.filter(it=>it.yoy!==null).map(it=>it.yoy);
+  const maxYoy = yoyValues.length ? Math.max(...yoyValues, 50) : 100;
+  const newY = Math.ceil(maxYoy * 1.15);  // 신규는 차트 상단에 표시
+
+  const maxAmt = Math.max(...bcg.items.map(it=>it.amt), 1);
+  const datasets = Object.entries(BCG_QUADRANTS).map(([k,q])=>{
+    const items = bcg.items.filter(it=>it.quadrant===k);
+    return {
+      label: q.name,
+      data: items.map(it=>({
+        x: it.amt || bcg.medianAmt*0.1,  // amt 0이면 차트 왼쪽 끝
+        y: it.yoy===null ? newY : it.yoy,
+        r: Math.max(6, Math.min(24, Math.sqrt(it.amt/maxAmt)*22)),
+        item: it
+      })),
+      backgroundColor: q.color+'a8',
+      borderColor: q.color,
+      borderWidth: 1.5
+    };
+  }).filter(ds=>ds.data.length>0);
+
+  charts.bcg?.destroy();
+  charts.bcg = new Chart(document.getElementById('ch-bcg'), {
+    type:'bubble',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top', labels:{color:TICK_COLOR,font:{size:11,family:'Pretendard Variable'},boxWidth:10,padding:10}},
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#0f172a', bodyColor:'#475569', padding:10, cornerRadius:6,
+          titleFont:{size:12,weight:'600',family:'Pretendard Variable'},
+          bodyFont:{size:11,family:'Pretendard Variable'},
+          callbacks:{
+            title: ctx => ctx[0].raw.item.name,
+            label: ctx => {
+              const it = ctx.raw.item;
+              return [
+                ` ${bcg.Y1}년: ₩${fmt(it.y1)}`,
+                ` ${bcg.Y2}년: ₩${fmt(it.y2)}`,
+                ` YoY: ${it.yoy===null ? '신규' : (it.yoy>=0?'+':'')+it.yoy.toFixed(1)+'%'}`,
+                ` 주문수: ${it.orders}건 · 수량: ${fmt(it.qty)}`
+              ];
+            }
+          }
+        },
+        annotation: false  // chart.js annotation plugin이 없을 수도 있어서
+      },
+      scales:{
+        x:{title:{display:true,text:`매출 규모 — ${bcg.Y2}년 (중앙선: ₩${fmt(bcg.medianAmt)})`,color:TICK_COLOR,font:{size:11,weight:'600'}},
+          ticks:{color:TICK_COLOR,font:{size:10},callback:v=>fmtM(v)},
+          grid:{color:GRID_COLOR}, beginAtZero:true},
+        y:{title:{display:true,text:'YoY 성장률 (%)  ← 위쪽이 성장, 아래쪽이 하락',color:TICK_COLOR,font:{size:11,weight:'600'}},
+          ticks:{color:TICK_COLOR,font:{size:10},callback:v=>v+'%'},
+          grid:{color:GRID_COLOR}}
+      },
+      onClick: (evt, els)=>{
+        if(els.length){
+          const el = els[0];
+          const ds = charts.bcg.data.datasets[el.datasetIndex];
+          const it = ds.data[el.index].item;
+          alert(`${it.name}\n\n${bcg.Y1}년 ₩${fmt(it.y1)} → ${bcg.Y2}년 ₩${fmt(it.y2)}\nYoY: ${it.yoy===null?'신규':it.yoy.toFixed(1)+'%'}\n${BCG_QUADRANTS[it.quadrant].action}`);
+        }
+      }
+    }
+  });
+
+  drawBCGTable();
+}
+
+function setBcgUnit(u){
+  bcgUnit = u;
+  document.querySelectorAll('#bcg-filters .fbtn').forEach((b,i)=>{
+    b.classList.toggle('on', (i===0 && u==='minor') || (i===1 && u==='major'));
+  });
+  renderBCG();
+}
+
+function drawBCGTable(){
+  const bcg = D._bcg;
+  if(!bcg) return;
+  const totalAmt = bcg.items.reduce((s,it)=>s+it.amt,0) || 1;
+
+  // 분면 우선순위 (스타→캐시카우→물음표→개→신규), 그 안에서 매출 내림차순
+  const order = {star:0, cashcow:1, question:2, dog:3, new:4};
+  const sorted = [...bcg.items].sort((a,b)=>
+    order[a.quadrant]-order[b.quadrant] || b.amt-a.amt
+  );
+
+  let html = `<thead><tr>
+    <th class="center">#</th><th class="center">분면</th>
+    <th>카테고리</th>
+    <th class="num">${bcg.Y1}년 매출</th><th class="num">${bcg.Y2}년 매출</th>
+    <th class="num">YoY</th><th class="num">매출 비중</th>
+    <th>추천 액션</th>
+  </tr></thead><tbody>`;
+  sorted.forEach((it,i)=>{
+    const q = BCG_QUADRANTS[it.quadrant];
+    const yoyDisp = it.yoy===null ? '<span class="yoy-new">신규</span>'
+      : yoyFormat(it.y1, it.y2);
+    html += `<tr>
+      <td class="center muted">${i+1}</td>
+      <td class="center"><span class="status-tag" style="background:${q.color}1f;color:${q.color};border-color:${q.color}40">${q.name}</span></td>
+      <td>${it.name}</td>
+      <td class="num">${it.y1?'₩'+fmt(it.y1):'<span class="muted">-</span>'}</td>
+      <td class="num">${it.y2?'₩'+fmt(it.y2):'<span class="muted">-</span>'}</td>
+      <td class="num">${yoyDisp}</td>
+      <td class="num">${(it.amt/totalAmt*100).toFixed(1)}%</td>
+      <td style="font-size:11px;color:var(--text2)">${q.action}</td>
+    </tr>`;
+  });
+  document.getElementById('tbl-bcg').innerHTML = html + '</tbody>';
+}
+
+// ─────────── 탭 9: 오늘의 액션 리스트 ───────────
+let actionFilter = 'all';
+
+function generateActions(){
+  const actions = [];
+  if(!D._rfm || !D._cycle) return actions;
+
+  // 고객사별 통합 정보 만들기
+  const custMap = {};
+  D._rfm.forEach(c=>{ custMap[c.id] = {...c}; });
+  D._cycle.forEach(c=>{
+    if(custMap[c.id]) custMap[c.id].cycle = c;
+  });
+
+  // 룰 1: 챔피언/충성 + 구매주기 초과 → 매우 긴급
+  Object.values(custMap).forEach(c=>{
+    if(!c.cycle || !c.cycle.ratio) return;
+    if(c.seg!=='champion' && c.seg!=='loyal') return;
+    if(c.cycle.ratio < 1.5) return;
+    const priority = Math.min(98, 70 + c.cycle.ratio*8);
+    actions.push({
+      priority, level: c.cycle.ratio>=2 ? 'urgent' : 'high',
+      icon: '🚨', type: 'vip_risk',
+      title: `${SEG_MAP[c.seg].name} 이탈 임박`,
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `평균 구매주기 ${c.cycle.avg.toFixed(0)}일인데 마지막 구매 후 ${Math.round(c.cycle.elapsed)}일 경과 (${c.cycle.ratio.toFixed(1)}배 초과) · 누적 매출 ₩${fmt(c.monetary)}`,
+      todo: '즉시 1:1 컨택 · 이탈 사유 파악 · 맞춤 후속 제안 준비'
+    });
+  });
+
+  // 룰 2: 이탈 위험 RFM (고가치)
+  Object.values(custMap).forEach(c=>{
+    if(c.seg!=='risk') return;
+    if(c.M<3) return;
+    const priority = Math.min(92, 60 + c.M*7);
+    actions.push({
+      priority, level: c.M>=4 ? 'high' : 'medium',
+      icon: '🚨', type: 'high_value_risk',
+      title: '고가치 고객 이탈 위험',
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `자주 구매하던 가치 고객(${c.frequency}회·₩${fmt(c.monetary)})인데 ${c.recency}일째 미접촉`,
+      todo: '복귀 인센티브 제안 · 신상품 알림 · 1:1 미팅 요청'
+    });
+  });
+
+  // 룰 3: YoY 매출 큰 폭 감소 (워터폴 기존축소 상위)
+  if(D._wf){
+    const top = [...D._wf.buckets.shrink].sort((a,b)=>a.delta-b.delta).slice(0,8);
+    top.forEach(c=>{
+      const ratio = c.y1>0 ? Math.abs(c.delta)/c.y1 : 0;
+      if(ratio<0.3) return;
+      const priority = Math.min(90, 55 + ratio*40);
+      actions.push({
+        priority, level: ratio>=0.5 ? 'high' : 'medium',
+        icon: '📉', type: 'yoy_decline',
+        title: '전년 대비 매출 큰 폭 감소',
+        custId: c.id, custName: c.name, ind: c.ind,
+        detail: `${D._wf.Y1}년 ₩${fmt(c.y1)} → ${D._wf.Y2}년 ₩${fmt(c.y2)} (${(-ratio*100).toFixed(0)}%) · 감소액 ₩${fmt(Math.abs(c.delta))}`,
+        todo: '거래 감소 사유 파악 · 경쟁사 동향 확인 · 가격·조건 재협상'
+      });
+    });
+  }
+
+  // 룰 4: 챔피언 장기 미컨택 (정기 케어)
+  Object.values(custMap).forEach(c=>{
+    if(c.seg!=='champion') return;
+    if(c.recency<30) return;  // 1달 이내는 안전
+    if(c.cycle && c.cycle.ratio && c.cycle.ratio>=1.5) return;  // 이미 룰1에서 처리됨
+    const priority = Math.min(75, 45 + c.recency/4);
+    actions.push({
+      priority, level: c.recency>=60 ? 'high' : 'medium',
+      icon: '💎', type: 'vip_checkin',
+      title: 'VIP 챔피언 정기 컨택',
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `${c.recency}일째 거래 공백 · 누적 매출 ₩${fmt(c.monetary)}의 VIP · 관계 유지 케어 시점`,
+      todo: '안부 컨택 · 신제품 우선 안내 · 특별 혜택 제공'
+    });
+  });
+
+  // 룰 5: 신규 후속 구매 미발생
+  Object.values(custMap).forEach(c=>{
+    if(c.seg!=='new') return;
+    if(c.recency<30) return;
+    const priority = Math.min(70, 35 + c.recency/3);
+    actions.push({
+      priority, level: c.recency>=90 ? 'high' : 'medium',
+      icon: '🆕', type: 'new_followup',
+      title: '신규 고객 두 번째 구매 유도',
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `${c.recency}일 전 첫 구매 (₩${fmt(c.monetary)}) 후 재구매 없음 · 골든타임 임박`,
+      todo: '온보딩 미팅 · 만족도 확인 · 관련 제품 제안'
+    });
+  });
+
+  // 룰 6: YoY 이탈 손실 회복
+  if(D._wf){
+    const top = [...D._wf.buckets.lost].sort((a,b)=>a.delta-b.delta).slice(0,5);
+    top.forEach(c=>{
+      const ratio = D._wf.totalY1 ? Math.abs(c.delta)/D._wf.totalY1 : 0;
+      const priority = Math.min(70, 35 + ratio*200);
+      actions.push({
+        priority, level: 'medium',
+        icon: '❌', type: 'recover_lost',
+        title: '이탈 고객 회복 시도',
+        custId: c.id, custName: c.name, ind: c.ind,
+        detail: `${D._wf.Y1}년 ₩${fmt(c.y1)} 거래 후 ${D._wf.Y2}년 완전 미거래 · 전년 대비 매출의 ${(ratio*100).toFixed(1)}% 손실`,
+        todo: '재방문 인센티브 · 1:1 영업 미팅 · 거래 중단 사유 조사'
+      });
+    });
+  }
+
+  // 룰 7: 잠재 충성 가속화
+  Object.values(custMap).forEach(c=>{
+    if(c.seg!=='potential') return;
+    const priority = Math.min(55, 35 + c.F*4);
+    actions.push({
+      priority, level: 'medium',
+      icon: '🌱', type: 'potential_boost',
+      title: '잠재 충성 고객 관계 발전',
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `최근 활발히 거래 중 (${c.frequency}회·₩${fmt(c.monetary)}) · 충성 단계로 끌어올릴 시점`,
+      todo: '업셀·교차판매 시도 · 멤버십·등급 혜택 제안'
+    });
+  });
+
+  // 룰 8: 휴면 고가치 재활성화
+  Object.values(custMap).forEach(c=>{
+    if(c.seg!=='dormant') return;
+    if(c.M<3) return;
+    const priority = Math.min(50, 25 + c.M*5);
+    actions.push({
+      priority, level: 'low', icon: '💤', type: 'dormant_revival',
+      title: '휴면 고가치 고객 재활성화',
+      custId: c.id, custName: c.name, ind: c.ind,
+      detail: `${c.recency}일째 미접촉 · 과거 ${c.frequency}회 ₩${fmt(c.monetary)} 거래 이력`,
+      todo: '재활성화 캠페인 · 복귀 혜택 제안 · 안부 컨택'
+    });
+  });
+
+  actions.sort((a,b)=>b.priority-a.priority);
+
+  // 같은 고객사가 여러 룰에 걸리면 우선순위가 가장 높은 액션만 남김 (노이즈 제거)
+  const seen = new Set();
+  const deduped = actions.filter(a=>{
+    if(seen.has(a.custId)) return false;
+    seen.add(a.custId);
+    return true;
+  });
+  return deduped;
+}
+
+function renderActions(){
+  const actions = generateActions();
+  D._actions = actions;
+
+  const summary = {urgent:0, high:0, medium:0, low:0};
+  actions.forEach(a=>{ summary[a.level]++; });
+
+  document.getElementById('action-summary').innerHTML = `
+    <div class="kpi" style="border-left:3px solid #dc2626"><div class="label">🚨 긴급</div><div class="value" style="color:#dc2626;font-size:22px">${summary.urgent}<span style="font-size:13px;color:var(--text3);font-weight:500">건</span></div><div class="sub">즉시 컨택 필요</div></div>
+    <div class="kpi" style="border-left:3px solid #d97706"><div class="label">🔥 높음</div><div class="value" style="color:#d97706;font-size:22px">${summary.high}<span style="font-size:13px;color:var(--text3);font-weight:500">건</span></div><div class="sub">이번 주 내</div></div>
+    <div class="kpi" style="border-left:3px solid #2563eb"><div class="label">📌 보통</div><div class="value" style="color:#2563eb;font-size:22px">${summary.medium}<span style="font-size:13px;color:var(--text3);font-weight:500">건</span></div><div class="sub">이번 달 내</div></div>
+    <div class="kpi" style="border-left:3px solid #94a3b8"><div class="label">📋 전체</div><div class="value" style="font-size:22px">${actions.length}<span style="font-size:13px;color:var(--text3);font-weight:500">건</span></div><div class="sub">+ 정보성 ${summary.low}건</div></div>
+  `;
+
+  drawActionList();
+}
+
+function filterActions(f){
+  actionFilter = f;
+  const map = ['all','urgent','high','medium'];
+  document.querySelectorAll('#action-filters .fbtn').forEach((b,i)=>{
+    b.classList.toggle('on', map[i]===f);
+  });
+  drawActionList();
+}
+
+function drawActionList(){
+  const actions = D._actions || [];
+  const filtered = actionFilter==='all' ? actions : actions.filter(a=>a.level===actionFilter);
+
+  if(filtered.length===0){
+    document.getElementById('action-list').innerHTML = '<div class="empty">해당 우선순위의 액션이 없습니다. 👏 양호한 상태!</div>';
+    return;
+  }
+
+  const lvLabel = {urgent:'🚨 긴급', high:'🔥 높음', medium:'📌 보통', low:'정보성'};
+  let html = '';
+  filtered.forEach((a,i)=>{
+    html += `<div class="action-card p-${a.level}">
+      <div class="action-icon">${a.icon}</div>
+      <div class="action-body">
+        <span class="action-priority-badge pb-${a.level}">${lvLabel[a.level]}</span>
+        <div class="action-title">${a.title} · <a class="clickable" onclick="showCustomerDetail('${a.custId}')">${a.custName}</a></div>
+        <div class="action-detail">${a.detail}</div>
+        <span class="action-todo">💡 ${a.todo}</span>
+      </div>
+      <div class="action-meta">
+        <div class="seq-num">#${i+1}</div>
+        <div class="seq-ind">${a.ind}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('action-list').innerHTML = html;
+}
+
 // ─────────── 탭 전환 ───────────
 function switchTab(idx){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
@@ -1797,6 +2806,89 @@ function exportExcel(){
     ]);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cycRows), '구매주기');
+
+  // RFM
+  if(D._rfm && D._rfm.length){
+    const rfmRows = [['순위','세그먼트','고객사ID','업체명','업종','R점수','F점수','M점수','매출액','주문수','마지막구매','미구매경과(일)']];
+    [...D._rfm].sort((a,b)=>b.monetary-a.monetary).forEach((c,i)=>{
+      rfmRows.push([i+1, SEG_MAP[c.seg].name, c.id, c.name, c.ind, c.R, c.F, c.M,
+        Math.round(c.monetary), c.frequency, fmtDate(c.lastDate), c.recency]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rfmRows), 'RFM세그먼트');
+
+    // RFM 요약
+    const segAgg = {};
+    RFM_SEGMENTS.forEach(s=>{ segAgg[s.key] = {count:0, amt:0}; });
+    D._rfm.forEach(c=>{ segAgg[c.seg].count++; segAgg[c.seg].amt += c.monetary; });
+    const totalAmt = D._rfm.reduce((s,c)=>s+c.monetary,0);
+    const sumRows = [['세그먼트','설명','고객사수','매출액','매출비중(%)','추천 액션']];
+    RFM_SEGMENTS.forEach(s=>{
+      const a = segAgg[s.key];
+      if(a.count>0) sumRows.push([s.name, s.desc, a.count, Math.round(a.amt),
+        Number((a.amt/totalAmt*100).toFixed(2)), s.action]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sumRows), 'RFM요약');
+  }
+
+  // Waterfall (YoY 모드일 때만)
+  if(D._wf){
+    const wf = D._wf;
+    const wfSum = [
+      ['구분','금액','고객사 수'],
+      [`${wf.Y1}년 시작`, Math.round(wf.totalY1), ''],
+      ['이탈 손실 (-)', Math.round(wf.sumLost), wf.buckets.lost.length],
+      ['기존 축소 (-)', Math.round(wf.sumShrink), wf.buckets.shrink.length],
+      ['신규 유입 (+)', Math.round(wf.sumNew), wf.buckets.new.length],
+      ['기존 확대 (+)', Math.round(wf.sumExpand), wf.buckets.expand.length],
+      [`${wf.Y2}년 종료`, Math.round(wf.totalY2), ''],
+      ['총 변화', Math.round(wf.totalY2-wf.totalY1),''],
+      ['YoY(%)', wf.totalY1?Number(((wf.totalY2-wf.totalY1)/wf.totalY1*100).toFixed(2)):'','']
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wfSum), `매출동인_${wf.Y1}vs${wf.Y2}`);
+
+    const wfDet = [['동인','고객사ID','업체명','업종',`${wf.Y1}년 매출`,`${wf.Y2}년 매출`,'증감액']];
+    const allBuckets = [
+      ['신규 유입', wf.buckets.new],
+      ['기존 확대', wf.buckets.expand],
+      ['기존 축소', wf.buckets.shrink],
+      ['이탈 손실', wf.buckets.lost]
+    ];
+    allBuckets.forEach(([label, arr])=>{
+      [...arr].sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).forEach(c=>{
+        wfDet.push([label, c.id, c.name, c.ind, Math.round(c.y1), Math.round(c.y2), Math.round(c.delta)]);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wfDet), '매출동인_상세');
+  }
+
+  // BCG (YoY 모드일 때만)
+  if(D._bcg){
+    const bcg = D._bcg;
+    const totalAmt = bcg.items.reduce((s,it)=>s+it.amt,0) || 1;
+    const bcgRows = [['분면','카테고리',`${bcg.Y1}년 매출`,`${bcg.Y2}년 매출`,'YoY(%)','매출비중(%)','수량','주문수','추천 액션']];
+    const order = {star:0, cashcow:1, question:2, dog:3, new:4};
+    [...bcg.items].sort((a,b)=>order[a.quadrant]-order[b.quadrant] || b.amt-a.amt).forEach(it=>{
+      const q = BCG_QUADRANTS[it.quadrant];
+      bcgRows.push([
+        q.name, it.name,
+        Math.round(it.y1), Math.round(it.y2),
+        it.yoy===null ? '신규' : Number(it.yoy.toFixed(2)),
+        Number((it.amt/totalAmt*100).toFixed(2)),
+        it.qty, it.orders, q.action
+      ]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bcgRows), `BCG_${bcg.Y1}vs${bcg.Y2}`);
+  }
+
+  // 오늘의 액션
+  if(D._actions && D._actions.length){
+    const lvLabel = {urgent:'🚨 긴급', high:'🔥 높음', medium:'📌 보통', low:'정보성'};
+    const actRows = [['#','우선순위','긴급도점수','액션 유형','고객사ID','업체명','업종','상황','권장 행동']];
+    D._actions.forEach((a,i)=>{
+      actRows.push([i+1, lvLabel[a.level], Math.round(a.priority), a.title, a.custId, a.custName, a.ind, a.detail, a.todo]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(actRows), '오늘의액션');
+  }
 
   const ymd = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `${D.dealerName}_매출분석_${ymd}.xlsx`);
